@@ -86,7 +86,7 @@
 
   <div id="ov"><div id="ovinner"></div></div>
   <div id="toast"></div>
-  <div id="help">WASD 移动 · 鼠标瞄准 · 左键挥砍 · 空格/右键 冲刺(无敌) · 数字键选卡</div>
+  <div id="help">WASD 移动 · 鼠标瞄准 · 左键挥砍 · 空格/右键 朝光标冲刺(无敌) · 数字键选卡</div>
 </div>
 
 <script>
@@ -384,7 +384,7 @@ function updatePlayer(dt) {
   // dash
   if ((keys.Space || mouse.right) && P.dashCd <= 0 && P.dashT <= 0) {
     P.dashT = .17; P.dashCd = S.dashCd;
-    P.dashDir = (ix || iy) ? Math.atan2(iy, ix) : P.aim;
+    P.dashDir = P.aim;          // 冲刺一律朝光标，和移动键无关
     addRing(P.x, P.y, 6, 34, '#88aaff', .22);
     if (S.dashSlow > 0) G.slow = S.dashSlow;
   }
@@ -791,7 +791,7 @@ function menu() {
       你没有血量。被打中只会让你的计时器变长。<br>
       买强化要花秒、开捷径要花秒、修复伤势也要花秒。<br>
       <span style="color:#ff8a5c">而 Boss 的强度，等于你累计的总时间。</span><br><br>
-      <span style="opacity:.7">WASD 移动 · 鼠标瞄准 · 左键挥砍 · 空格/右键 冲刺(无敌帧)</span>
+      <span style="opacity:.7">WASD 移动 · 鼠标瞄准 · 左键挥砍 · 空格/右键 朝光标冲刺(无敌帧)</span>
     </div>
     <div class="btn" id="start">开 始</div>`);
   document.getElementById('start').onclick = startRun;
