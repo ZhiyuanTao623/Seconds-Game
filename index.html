@@ -22,6 +22,7 @@
   #breakdown { margin-top:6px; opacity:.75; font-size:11px; line-height:1.6; }
   #breakdown b { font-weight:700; }
   .cPlay{color:#9fe3ff}.cPen{color:#ff6a6a}.cSpend{color:#ffd166}.cRef{color:#8fe388}
+  #bTax { color:#ff8a5c; font-weight:700; }
   #rightbox { text-align:right; }
   #nodeinfo { font-size:12px; opacity:.7; }
   #bossscale { margin-top:6px; font-size:12px; color:#ff8a5c; }
@@ -73,6 +74,7 @@
         <span class="cPen">受击 <b id="bPen">0.0</b></span> &nbsp;
         <span class="cSpend">消费 <b id="bSpend">0.0</b></span> &nbsp;
         <span class="cRef">返还 <b id="bRef">0.0</b></span>
+        <span id="bTax"></span>
       </div>
     </div>
     <div id="rightbox">
@@ -163,10 +165,12 @@ const P = {
   atkCd: 0, atkT: 0, atkDir: 0,
   dashCd: 0, dashT: 0, dashDir: 0,
   inv: 0, counter: 0, flash: 0,
+  streak: 0, streakT: 0,          // 连击税：短时间内连续受击，价码递增
 };
 function resetPlayer() {
   P.x = W / 2; P.y = H - 90; P.vx = P.vy = 0;
   P.atkCd = P.atkT = P.dashCd = P.dashT = P.inv = P.counter = P.flash = 0;
+  P.streak = 0; P.streakT = 0;
 }
 
 // ---------------------------------------------------------------- stats
@@ -180,6 +184,35 @@ function recalc() {
   S = Object.assign({}, BASE);
   for (const u of G.upgrades) u.apply(S);
 }
+
+// ---- 受击经济学（旋钮）
+// 无敌帧本质上是一笔"退款"：挨一下 = 花 pen 秒买 INV_TIME 秒的穿墙权。
+// 太长会让无脑硬吃变成最优解，所以压到刚好够脱离接触。
+const INV_TIME   = .40;
+const TAX_WINDOW = 5.0;   // 连击税窗口：距上次受击多久内继续累进
+const TAX_STEP   = 1.3;   // 每多挨一次，价码 ×1.3
+const comboTax = () => Math.pow(TAX_STEP, P.streak);
+
+// Boss 各招式的价码不同，报价必须分招式给
+const BOSS_SLAM_PEN = 3.0, BOSS_BURST_PEN = 2.5;
+
+// ===== 报价单一真相 =====
+// 屏幕上任何一个 "+Xs" 都必须经过这里，且和 hitPlayer 实收的公式逐字相同。
+// 无敌期间 hitPlayer 直接 return，所以此刻全场真的是 0 —— 报价也必须是 0。
+function penFor(base) {
+  if (P.inv > 0 || P.dashT > 0) return 0;
+  return base * S.penMult * comboTax();
+}
+// 这个敌人此刻威胁你的是哪一招
+function threatOf(e) {
+  if (e.threat) return e.threat;          // 招式已放出、伤害还在飞（Boss 震波）
+  if (e.type === 'boss') {
+    if (e.st === 'telSlam')  return BOSS_SLAM_PEN;
+    if (e.st === 'telBurst') return BOSS_BURST_PEN;
+  }
+  return e.pen;
+}
+const priceOf = e => penFor(threatOf(e));
 
 // ---------------------------------------------------------------- upgrades
 const UPGRADES = [
@@ -271,6 +304,7 @@ function mkEnemy(type, x, y, mul) {
     type, x, y, r: base.r, hp: base.hp * mul, max: base.hp * mul,
     pen: base.pen, spd: base.spd,
     st: 'idle', t: 0, cd: rnd(.3, 1.4), dir: 0, flash: 0, kb: { x:0, y:0 }, dead:false,
+    threat: 0,
   };
 }
 function spawnWave(kind, node) {
@@ -302,7 +336,7 @@ function spawnBoss() {
   G.enemies = [{
     type:'boss', x: W/2, y: 150, r: 42,
     hp: 420 * sc, max: 420 * sc, pen: 5.0, spd: 78 * (1 + (sc-1)*.25),
-    st:'idle', t: 0, cd: 1.2, dir:0, flash:0, kb:{x:0,y:0}, dead:false,
+    st:'idle', t: 0, cd: 1.2, dir:0, flash:0, kb:{x:0,y:0}, dead:false, threat: 0,
     combo: 0, scale: sc,
   }];
 }
@@ -310,11 +344,14 @@ function spawnBoss() {
 // ---------------------------------------------------------------- damage
 function hitPlayer(sec, ex, ey) {
   if (P.inv > 0 || P.dashT > 0) return;
-  const s = sec * S.penMult;
+  const tax = comboTax();                       // 本次按当前税率结算
+  const s = penFor(sec);                        // 和价签共用同一条公式，不许重算
   penalty(s);
-  P.inv = .75; P.flash = .35; P.counter = 2.0;
+  P.streak++; P.streakT = TAX_WINDOW;           // 之后每一下更贵
+  P.inv = INV_TIME; P.flash = .35; P.counter = 2.0;
   G.shake = 16; G.hitstop = .07;
   addFloat(P.x, P.y - 30, '+' + fmt(s) + 's', '#ff4444', 34);
+  if (tax > 1) addFloat(P.x, P.y - 66, '连击税 ×' + tax.toFixed(2), '#ff8a5c', 15);
   addRing(P.x, P.y, 10, 60, '#ff4444', .3);
   const a = Math.atan2(P.y - (ey ?? P.y), P.x - (ex ?? P.x));
   P.vx += Math.cos(a) * 260; P.vy += Math.sin(a) * 260;
@@ -342,6 +379,7 @@ function updatePlayer(dt) {
   const m = Math.hypot(ix, iy) || 1; ix /= m; iy /= m;
 
   P.dashCd -= dt; P.atkCd -= dt; P.inv -= dt; P.counter -= dt; P.flash -= dt;
+  if (P.streakT > 0) { P.streakT -= dt; if (P.streakT <= 0) P.streak = 0; }
 
   // dash
   if ((keys.Space || mouse.right) && P.dashCd <= 0 && P.dashT <= 0) {
@@ -404,7 +442,7 @@ function updateEnemy(e, dt) {
     } else if (e.st === 'dash') {
       e.t -= dt;
       e.x += Math.cos(e.dir) * 760 * dt; e.y += Math.sin(e.dir) * 760 * dt;
-      if (d < e.r + P.r + 3) hitPlayer(e.pen, e.x, e.y);
+      if (dist(P, e) < e.r + P.r + 3) hitPlayer(e.pen, e.x, e.y);   // 用移动后的距离，否则会收冤枉钱
       if (e.t <= 0) { e.st = 'rec'; e.t = .55; }
     } else { e.t -= dt; if (e.t <= 0) { e.st = 'idle'; e.cd = rnd(.5, 1.1); } }
 
@@ -464,7 +502,7 @@ function updateBoss(e, dt, d, toP) {
       for (let i = 0; i < n; i++) {
         const a = off + i / n * TAU;
         G.bullets.push({ x:e.x, y:e.y, r:7, vx:Math.cos(a)*280, vy:Math.sin(a)*280,
-                         pen:2.5, hostile:true, life:4, dead:false });
+                         pen:BOSS_BURST_PEN, hostile:true, life:4, dead:false });
       }
       G.shake = 12;
     }
@@ -474,7 +512,7 @@ function updateBoss(e, dt, d, toP) {
   } else if (e.st === 'charge') {
     e.t -= dt;
     e.x += Math.cos(e.dir) * 700 * dt; e.y += Math.sin(e.dir) * 700 * dt;
-    if (d < e.r + P.r + 4) hitPlayer(e.pen, e.x, e.y);
+    if (dist(P, e) < e.r + P.r + 4) hitPlayer(e.pen, e.x, e.y);
     if (e.t <= 0) {
       e.combo--;
       if (e.combo > 0) { e.st = 'telCharge'; e.t = .38; e.dir = Math.atan2(P.y - e.y, P.x - e.x); }
@@ -484,12 +522,14 @@ function updateBoss(e, dt, d, toP) {
     e.t -= dt;
     if (e.t <= 0) {
       e.st = 'idle'; e.cd = 1.1;
+      e.threat = BOSS_SLAM_PEN;   // 三段波落地前，报价不能跳回接触价
       for (let i = 0; i < 3; i++) {
         const rr = 90 + i * 85;
         setTimeout(() => {
+          if (i === 2) e.threat = 0;
           if (G.scene !== 'play') return;
           addRing(e.x, e.y, rr - 40, rr, '#ff4444', .28);
-          if (Math.abs(dist(P, e) - rr + 20) < 46) hitPlayer(3.0, e.x, e.y);
+          if (Math.abs(dist(P, e) - rr + 20) < 46) hitPlayer(BOSS_SLAM_PEN, e.x, e.y);
         }, i * 190);
       }
       G.shake = 16;
@@ -535,6 +575,22 @@ function poly(x, y, r, n, rot) {
   }
   ctx.closePath();
 }
+// 全场唯一的报价渲染口。数字来自 penFor()，和实收共用一个公式，
+// 字符串用 fmt() 生成 —— 和受击时飘出来的那个数字逐字一致。
+// 绿"免费" = 你现在无敌，这一下真的不要钱；橙色加粗 = 连击税生效中。
+function drawPrice(x, y, sec, alpha, size) {
+  const free = sec <= 0, taxed = P.streak > 0;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = free  ? 'rgba(143,227,136,.9)'
+                : taxed ? 'rgba(255,138,92,.95)'
+                        : 'rgba(255,106,106,.75)';
+  ctx.font = (taxed && !free ? '700 ' : '') + size + 'px monospace';
+  ctx.fillText(free ? '免费' : '+' + fmt(sec) + 's', x, y);
+  ctx.restore();
+}
+
 function drawEnemy(e) {
   const hurt = e.flash > 0;
   ctx.lineWidth = 2.5;
@@ -610,9 +666,7 @@ function drawEnemy(e) {
     ctx.fillStyle = '#fff';
     ctx.fillRect(e.x - w / 2, e.y - e.r - 12, w * clamp(e.hp / e.max, 0, 1), 3);
   }
-  // 时间惩罚标签
-  ctx.fillStyle = 'rgba(255,106,106,.75)'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('+' + e.pen.toFixed(1) + 's', e.x, e.y + e.r + 14);
+  drawPrice(e.x, e.y + e.r + 14, priceOf(e), 1, 10);
 }
 
 function drawPlayer() {
@@ -677,6 +731,11 @@ function drawBullets() {
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
     ctx.strokeStyle = 'rgba(255,82,82,.35)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x - b.vx * .04, b.y - b.vy * .04); ctx.stroke();
+    // 飞行中的弹一样会收钱，所以一样要报价。越靠近越清楚，免得 Boss 弹幕糊成一片。
+    if (b.hostile) {
+      const a = clamp(1 - (dist(P, b) - 100) / 200, 0, 1);
+      if (a > .03) drawPrice(b.x, b.y - b.r - 7, penFor(b.pen), a, 9);
+    }
   }
 }
 
@@ -689,6 +748,8 @@ function updateHUD() {
   document.getElementById('bPen').textContent   = fmt(G.tPen);
   document.getElementById('bSpend').textContent = fmt(G.tSpend);
   document.getElementById('bRef').textContent   = fmt(G.tRef);
+  document.getElementById('bTax').textContent   = (G.scene === 'play' && P.streak > 0)
+    ? '　连击税 ×' + comboTax().toFixed(2) + ' · ' + fmt(Math.max(0, P.streakT)) + 's 后清零' : '';
   document.getElementById('nodeinfo').textContent =
     G.node > G.MAXNODE ? '最终节点' : ('节点 ' + G.node + ' / ' + G.MAXNODE);
   document.getElementById('bossscale').textContent = 'BOSS 强度 ×' + bossScale().toFixed(2);
