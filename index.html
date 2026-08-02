@@ -526,10 +526,14 @@ function updateBoss(e, dt, d, toP) {
       for (let i = 0; i < 3; i++) {
         const rr = 90 + i * 85;
         setTimeout(() => {
+          // 这个定时器可能比 Boss 本身活得更久。只要它已经不在场上，
+          // 玩家就没有任何价签可读 —— 那就不许收钱。
+          if (G.scene === 'play' && !e.dead && G.enemies.includes(e)) {
+            addRing(e.x, e.y, rr - 40, rr, '#ff4444', .28);
+            if (Math.abs(dist(P, e) - rr + 20) < 46) hitPlayer(BOSS_SLAM_PEN, e.x, e.y);
+          }
+          // 必须等最后一段真的结算完再撤回报价，否则第三下会按接触价 5.0 显示
           if (i === 2) e.threat = 0;
-          if (G.scene !== 'play') return;
-          addRing(e.x, e.y, rr - 40, rr, '#ff4444', .28);
-          if (Math.abs(dist(P, e) - rr + 20) < 46) hitPlayer(BOSS_SLAM_PEN, e.x, e.y);
         }, i * 190);
       }
       G.shake = 16;
