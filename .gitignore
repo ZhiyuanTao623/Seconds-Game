@@ -1,2 +1,5 @@
 # Claude Code 本地个人配置（含 hook 设置），不进仓库
 .claude/settings.local.json
+
+# 报价一致性测试：只在本地当推送闸门用，不发布到 GitHub
+tests/
