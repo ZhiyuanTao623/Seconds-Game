@@ -31,6 +31,7 @@ export class App implements SceneContext {
 
     this.activeScene = new TitleScene(this);
     this.activeScene.enter?.();
+    this.updateLangToggleVisibility();
     requestAnimationFrame(this.frame);
   }
 
@@ -48,6 +49,7 @@ export class App implements SceneContext {
     this.activeScene.exit?.();
     this.activeScene = next;
     this.activeScene.enter?.();
+    this.updateLangToggleVisibility();
   }
 
   toMap(): void { this.go(new MapScene(this)); }
@@ -79,6 +81,12 @@ export class App implements SceneContext {
 
     const toggle = document.getElementById('langToggle');
     if (toggle) toggle.textContent = getLocale() === 'zh' ? 'EN' : '中文';
+  }
+
+  /** 只在标题页出现 —— 开局之后没有再切语言的场景，不用一直占着屏幕角落。 */
+  private updateLangToggleVisibility(): void {
+    const toggle = document.getElementById('langToggle');
+    if (toggle) toggle.style.display = this.activeScene instanceof TitleScene ? '' : 'none';
   }
 
   private onLocaleChange = (): void => {

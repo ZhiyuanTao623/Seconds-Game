@@ -365,7 +365,10 @@ function drawScreenFlash(r: Renderer, world: World): void {
   if (p.flash <= 0) return;
   const { ctx } = r;
   ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // 用 r.resetTransform()，不要自己写 setTransform(1,0,0,1,0,0) ——
+  // 高分屏上单位变换是 (dpr,0,0,dpr,0,0)，写死 1 会让这个全屏红闪
+  // 只盖住左上角 1/dpr 的区域。
+  r.resetTransform();
   ctx.fillStyle = `rgba(255,40,40,${p.flash * 0.35})`;
   ctx.fillRect(0, 0, ARENA.w, ARENA.h);
   ctx.restore();

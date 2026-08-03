@@ -105,15 +105,19 @@ canvas { display: block; background: #0d0d10; image-rendering: auto; }
 #help { position: absolute; bottom: 10px; left: 16px; font-size: 10px; opacity: .32; z-index: 5; }
 
 /*
- * 语言切换必须够到每一个屏幕，包括标题页、商店、结算这些用 #ov 盖住
- * 整个视口的界面（z-index:10）。所以它是 #wrap 的直接子元素，
- * 不挂在 #hud（z-index:5）下面 —— 挂在那儿会被任何一个 overlay 完全挡住。
+ * 只在标题页显示（App.updateLangToggleVisibility 控制），但标题页本身
+ * 是 #ov 盖满整个视口的一个界面（z-index:10）。所以它是 #wrap 的
+ * 直接子元素、自己给更高的 z-index —— 挂在 #hud（z-index:5）下面
+ * 会被标题页的覆盖层整个挡住，看不见也点不到。
+ *
+ * 视觉上刻意做得和 .btn 一样扎眼（实心边框、hover 反色）—— 这是
+ * 唯一一个「进游戏之前必须看见」的控件，不能用小字号糊弄过去。
  */
 #langToggle {
-  position: absolute; top: 10px; right: 16px; z-index: 20;
+  position: absolute; top: 20px; right: 24px; z-index: 20;
   display: inline-block; pointer-events: auto; cursor: pointer;
-  border: 1px solid #555; padding: 1px 7px;
-  font-size: 10px; letter-spacing: 1px; opacity: .6;
-  transition: opacity .12s, border-color .12s;
+  border: 1px solid #888; padding: 9px 20px;
+  font-size: 14px; font-weight: 700; letter-spacing: 2px;
+  transition: border-color .12s, background .12s, color .12s;
 }
-#langToggle:hover { opacity: 1; border-color: #fff; }
+#langToggle:hover { border-color: #fff; background: #fff; color: #000; }
