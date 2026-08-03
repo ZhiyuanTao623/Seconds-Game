@@ -1,0 +1,69 @@
+import { FEEL, REWARDS } from '../game/config';
+import { buildRoom } from '../game/room';
+import { drawWorld } from '../render/drawWorld';
+import { RewardScene } from './reward';
+import type { Scene, SceneContext } from './scene';
+import type { Renderer } from '../render/renderer';
+import type { Player } from '../game/player';
+import type { World } from '../game/world';
+import type { MapNode } from '../game/map';
+
+export class CombatScene implements Scene {
+  readonly countsTime = true;
+  readonly pausable = true;
+
+  private world: World;
+  /** 清空后到结算界面的过场倒计时；-1 = 还没清空 */
+  private clearTimer = -1;
+  /** 震屏抖动用的随机源。纯表现，不影响任何判定，所以不进 seed 流。 */
+  private shakeRng: () => number;
+
+  constructor(private ctx: SceneContext, private node: MapNode) {
+    this.world = buildRoom(ctx.run, node);
+    const rng = ctx.run.rngFor(node.id, 'shake');
+    this.shakeRng = () => rng.float();
+    if (node.kind === 'boss') ctx.overlay.toast('最终节点');
+  }
+
+  get player(): Player { return this.world.player; }
+
+  // enter 会在暂停恢复时被再调用一次，所以这里只能放幂等的操作
+  enter(): void { this.ctx.overlay.hide(); }
+
+  update(dt: number): void {
+    this.world.step(dt, this.ctx.input);
+
+    if (this.clearTimer < 0) {
+      if (this.world.cleared) this.clearTimer = FEEL.roomClearDelay;
+      return;
+    }
+
+    // 过场这段时间照常计时 —— 房间清空不代表停表
+    this.clearTimer -= dt;
+    if (this.clearTimer <= 0) this.finish();
+  }
+
+  render(r: Renderer): void {
+    r.shake(this.world.shake, this.shakeRng);
+    drawWorld(r, this.world);
+    r.resetTransform();
+  }
+
+  exit(): void {
+    // 房间一走，所有排期作废 —— 不会有回调活得比它所属的战斗更久
+    this.world.timeline.clear();
+  }
+
+  private finish(): void {
+    const { run } = this.ctx;
+
+    if (this.node.kind === 'boss') {
+      run.won = true;
+      this.ctx.toResult();
+      return;
+    }
+
+    const choices = this.node.kind === 'elite' ? REWARDS.eliteChoices : REWARDS.combatChoices;
+    this.ctx.go(new RewardScene(this.ctx, this.node, choices));
+  }
+}

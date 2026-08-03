@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 每轮改动结束时：先跑报价一致性测试，再决定要不要推 GitHub。
+# 每轮改动结束时：先跑闸门（类型检查 + 测试 + 构建），再决定要不要推 GitHub。
 # 由 .claude/settings.local.json 里的 Stop hook 调用。
 #
 # 设计取舍：
@@ -9,11 +9,11 @@
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || exit 0
 
-# ---------- 闸门：报价一致性测试 ----------
+# ---------- 闸门：类型检查 + 报价一致性测试 + 构建 ----------
 TESTS_OK=1
 NFAIL=0
 if [ -f tests/run.sh ]; then
-  if TEST_OUT=$(bash tests/run.sh 3 2>&1); then
+  if TEST_OUT=$(bash tests/run.sh 2>&1); then
     TESTS_OK=1
   else
     TESTS_OK=0
@@ -33,7 +33,7 @@ fi
 
 # ---------- 测试没过就到此为止 ----------
 if [ "$TESTS_OK" = "0" ]; then
-  echo "{\"systemMessage\":\"⛔ 报价测试 ${NFAIL} 项未通过，已拦下推送。改动存为本地 WIP 提交，可回滚。跑 bash tests/run.sh 看详情\"}"
+  echo "{\"systemMessage\":\"⛔ 闸门 ${NFAIL} 项未通过，已拦下推送。改动存为本地 WIP 提交，可回滚。跑 bash tests/run.sh 看详情\"}"
   exit 0
 fi
 

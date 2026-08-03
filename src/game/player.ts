@@ -1,0 +1,249 @@
+import { CHARGED_SLASH, HIT, PLAYER, THROW_BLADE } from './config';
+import { TAU, angleDiff, angleTo, dist, friction } from '../core/math';
+import type { Enemy } from './entities';
+import type { World } from './world';
+import type { InputSource } from '../core/input';
+
+export interface Player {
+  x: number; y: number; r: number;
+  vx: number; vy: number;
+  /** 瞄准角度，永远跟着光标 */
+  aim: number;
+
+  atkCd: number;
+
+  dashCd: number;
+  dashT: number;
+  dashDir: number;
+  /** 本次冲刺已经用掠影打过的敌人，冲刺结束时清空 */
+  dashHits: Set<Enemy>;
+
+  /** 受击无敌剩余 */
+  inv: number;
+  /** 受击僵直剩余 */
+  hitstun: number;
+  /** 本次僵直的总时长（判断「过半可冲刺取消」用） */
+  hitstunTotal: number;
+  /** 反击窗口剩余（只有持「反击」强化时才会被设置） */
+  counter: number;
+  /** 受击红闪剩余 */
+  flash: number;
+
+  /** 连击税层数 */
+  streak: number;
+  /** 距离清零还有多久 */
+  streakT: number;
+
+  /** 蓄力中（仅持「蓄力」强化时） */
+  charging: boolean;
+  chargeT: number;
+}
+
+export function createPlayer(): Player {
+  return {
+    x: PLAYER.spawn.x, y: PLAYER.spawn.y, r: PLAYER.radius,
+    vx: 0, vy: 0, aim: -Math.PI / 2,
+    atkCd: 0,
+    dashCd: 0, dashT: 0, dashDir: 0, dashHits: new Set(),
+    inv: 0, hitstun: 0, hitstunTotal: 0, counter: 0, flash: 0,
+    streak: 0, streakT: 0,
+    charging: false, chargeT: 0,
+  };
+}
+
+export const isInvulnerable = (p: Player): boolean => p.inv > 0 || p.dashT > 0;
+
+/** 僵直是否已经过半 —— 过半之后可以用冲刺打断。 */
+const canDashCancel = (p: Player): boolean =>
+  p.hitstun <= 0 || p.hitstunTotal - p.hitstun >= HIT.hitstunDashCancelAt;
+
+export function updatePlayer(world: World, input: InputSource, dt: number): void {
+  const p = world.player;
+
+  p.aim = angleTo(p, input.pointer);
+
+  p.dashCd -= dt;
+  p.atkCd -= dt;
+  p.inv -= dt;
+  p.counter -= dt;
+  p.flash -= dt;
+  if (p.hitstun > 0) p.hitstun -= dt;
+
+  if (p.streakT > 0) {
+    p.streakT -= dt;
+    if (p.streakT <= 0) p.streak = 0;
+  }
+
+  updateDash(world, input, dt);
+  updateMovement(world, input, dt);
+  updateAttack(world, input, dt);
+}
+
+// ---------------------------------------------------------------- 冲刺
+
+function updateDash(world: World, input: InputSource, dt: number): void {
+  const p = world.player;
+  const s = world.stats;
+
+  const wantsDash = input.wasPressed('Space') || input.wasMousePressed('right');
+  if (wantsDash && p.dashCd <= 0 && p.dashT <= 0 && canDashCancel(p)) {
+    p.dashT = PLAYER.dashTime;
+    p.dashCd = s.dashCd;
+    // 冲刺一律朝光标，与移动键无关，且在按下那一帧就锁死
+    p.dashDir = p.aim;
+    p.dashHits.clear();
+    // 冲刺打断僵直与蓄力 —— 这是被围住时唯一的技术性出口
+    p.hitstun = 0;
+    p.charging = false;
+    p.chargeT = 0;
+    world.fx.ring(p.x, p.y, 6, 34, '#88aaff', 0.22);
+    if (s.dashSlow > 0) world.applySlow(s.dashSlow);
+  }
+
+  if (p.dashT > 0) {
+    p.dashT -= dt;
+    p.x += Math.cos(p.dashDir) * PLAYER.dashSpeed * dt;
+    p.y += Math.sin(p.dashDir) * PLAYER.dashSpeed * dt;
+    if (s.dashDamage > 0) applyPhantomStrike(world, dt);
+    if (p.dashT <= 0) p.dashHits.clear();
+  }
+}
+
+/** 掠影：冲刺穿过敌人时造成伤害，同一次冲刺对同一敌人只结算一次。 */
+function applyPhantomStrike(world: World, _dt: number): void {
+  const p = world.player;
+  for (const e of world.enemies) {
+    if (e.dead || p.dashHits.has(e)) continue;
+    if (dist(p, e) > p.r + e.r) continue;
+    p.dashHits.add(e);
+    world.damageEnemy(e, world.stats.dmg * world.stats.dashDamage);
+    world.fx.ring(e.x, e.y, 4, e.r + 26, '#88aaff', 0.24);
+    world.addHitstop(0.02);
+  }
+}
+
+// ---------------------------------------------------------------- 移动
+
+function updateMovement(world: World, input: InputSource, dt: number): void {
+  const p = world.player;
+  const s = world.stats;
+
+  if (p.dashT <= 0) {
+    // 僵直期间移动输入无效，但击退速度照常生效 —— 你会被打飞，只是不能自己走
+    let ix = 0;
+    let iy = 0;
+    if (p.hitstun <= 0) {
+      ix = (input.isDown('KeyD', 'ArrowRight') ? 1 : 0) - (input.isDown('KeyA', 'ArrowLeft') ? 1 : 0);
+      iy = (input.isDown('KeyS', 'ArrowDown') ? 1 : 0) - (input.isDown('KeyW', 'ArrowUp') ? 1 : 0);
+      const mag = Math.hypot(ix, iy);
+      if (mag > 0) { ix /= mag; iy /= mag; }
+    }
+    p.x += (ix * s.spd + p.vx) * dt;
+    p.y += (iy * s.spd + p.vy) * dt;
+  }
+
+  const f = friction(PLAYER.selfFriction, dt);
+  p.vx *= f;
+  p.vy *= f;
+  world.arena.collide(p);
+}
+
+// ---------------------------------------------------------------- 攻击
+
+function updateAttack(world: World, input: InputSource, dt: number): void {
+  const p = world.player;
+  const s = world.stats;
+
+  if (p.hitstun > 0) {
+    p.charging = false;
+    p.chargeT = 0;
+    return;
+  }
+
+  if (s.chargedSlash) {
+    updateChargedAttack(world, input, dt);
+    return;
+  }
+
+  // 默认：按住左键，按 atkCd 的节奏连续挥砍
+  if (input.isMouseDown('left') && p.atkCd <= 0) slash(world, false);
+}
+
+/**
+ * 持有「蓄力」后按键语义改变：按住不再自动连砍。
+ *   短按松开（< 0.5s）→ 普通挥砍
+ *   按住 ≥ 0.5s 松开   → 360° 全向斩
+ * 失去「按住不放自动输出」是它明码标价的代价。
+ */
+function updateChargedAttack(world: World, input: InputSource, dt: number): void {
+  const p = world.player;
+
+  if (input.wasMousePressed('left')) {
+    p.charging = true;
+    p.chargeT = 0;
+  }
+
+  if (p.charging && input.isMouseDown('left')) p.chargeT += dt;
+
+  if (p.charging && input.wasMouseReleased('left')) {
+    const full = p.chargeT >= CHARGED_SLASH.chargeTime;
+    p.charging = false;
+    p.chargeT = 0;
+    if (full) slash(world, true);
+    else if (p.atkCd <= 0) slash(world, false);
+  }
+
+  // 松开事件在切场景等情况下可能丢失，按键已经不在按下状态就收回蓄力
+  if (p.charging && !input.isMouseDown('left')) {
+    p.charging = false;
+    p.chargeT = 0;
+  }
+}
+
+function slash(world: World, charged: boolean): void {
+  const p = world.player;
+  const s = world.stats;
+
+  const range = charged ? s.range * CHARGED_SLASH.rangeMult : s.range;
+  const arc = charged ? TAU : s.arc;
+  const damage = charged ? s.dmg * CHARGED_SLASH.damageMult : s.dmg;
+
+  p.atkCd = charged ? s.atkCd * CHARGED_SLASH.recoverMult : s.atkCd;
+
+  if (!charged) {
+    // 普通挥砍带一点点前冲，让「够到」这件事有手感
+    p.x += Math.cos(p.aim) * PLAYER.attackLunge;
+    p.y += Math.sin(p.aim) * PLAYER.attackLunge;
+    world.arena.collide(p);
+  }
+
+  world.fx.slash(p.x, p.y, p.aim, range, arc, charged ? 0.26 : 0.18);
+  if (charged) world.fx.ring(p.x, p.y, 10, range, '#ffd166', 0.3);
+
+  for (const e of world.enemies) {
+    if (e.dead) continue;
+    if (dist(p, e) >= range + e.r) continue;
+    const toEnemy = angleTo(p, e);
+    if (!charged && Math.abs(angleDiff(toEnemy, p.aim)) >= arc / 2) continue;
+
+    world.damageEnemy(e, damage);
+    e.knockback.x += Math.cos(toEnemy) * PLAYER.enemyKnockback;
+    e.knockback.y += Math.sin(toEnemy) * PLAYER.enemyKnockback;
+    world.addHitstop(0.03);
+  }
+
+  // 掷刃只挂在普通挥砍上 —— 全向斩已经是 360°，再往一个方向丢一枚没有意义
+  if (s.projectile && !charged) {
+    world.bullets.push({
+      x: p.x, y: p.y,
+      vx: Math.cos(p.aim) * THROW_BLADE.speed,
+      vy: Math.sin(p.aim) * THROW_BLADE.speed,
+      r: THROW_BLADE.radius,
+      pen: 0,
+      life: THROW_BLADE.life,
+      dead: false,
+      hostile: false,
+      damage: s.dmg * THROW_BLADE.damageMult,
+    });
+  }
+}

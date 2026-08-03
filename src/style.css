@@ -1,0 +1,104 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: #08080a; overflow: hidden;
+  font-family: "SF Mono", Menlo, Consolas, "Courier New", monospace;
+  color: #e8e8ec;
+}
+
+#wrap {
+  position: relative; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+
+canvas { display: block; background: #0d0d10; image-rendering: auto; }
+
+/* ---------------------------------------------------------------- HUD */
+#hud {
+  position: absolute; top: 0; left: 0; right: 0; padding: 10px 16px;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  pointer-events: none; font-size: 12px; letter-spacing: .5px; z-index: 5;
+}
+#clockbox { text-align: left; }
+#clock { font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -1px; }
+#clock.jolt { color: #ff4444; }
+#breakdown { margin-top: 6px; opacity: .75; font-size: 11px; line-height: 1.6; }
+#breakdown b { font-weight: 700; }
+.cPlay { color: #9fe3ff; }
+.cPen  { color: #ff6a6a; }
+.cSpend{ color: #ffd166; }
+.cRef  { color: #8fe388; }
+#bTax { color: #ff8a5c; font-weight: 700; }
+
+#rightbox { text-align: right; }
+#nodeinfo { font-size: 12px; opacity: .7; }
+#seedinfo { margin-top: 6px; font-size: 11px; opacity: .42; letter-spacing: 1px; }
+#upglist { margin-top: 8px; font-size: 11px; opacity: .85; line-height: 1.7; max-width: 240px; }
+#upglist span {
+  display: inline-block; border: 1px solid #444;
+  padding: 1px 6px; margin: 1px; border-radius: 2px;
+}
+
+/* ---------------------------------------------------------------- overlay */
+#ov {
+  position: absolute; inset: 0; display: none; z-index: 10;
+  background: rgba(6, 6, 9, .92);
+  align-items: center; justify-content: center;
+}
+#ov.on { display: flex; }
+/* 遮蔽式暂停：完全不透明，暂停时看不见战场，杜绝「停表观察」 */
+#ov.opaque { background: #08080a; }
+#ovinner { width: min(1000px, 94%); text-align: center; }
+
+.ov-title { font-size: 13px; letter-spacing: 6px; opacity: .55; margin-bottom: 6px; }
+.ov-sub { font-size: 12px; opacity: .5; margin-bottom: 26px; line-height: 1.8; }
+
+.cards { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.card {
+  width: 250px; min-height: 190px; border: 1px solid #3a3a42; background: #111116;
+  padding: 18px 16px; cursor: pointer; text-align: left;
+  display: flex; flex-direction: column;
+  transition: border-color .12s, transform .12s, background .12s;
+}
+.card:hover { border-color: #fff; transform: translateY(-3px); background: #17171d; }
+.card.taken { opacity: .28; pointer-events: none; }
+.card .k { font-size: 10px; letter-spacing: 3px; opacity: .45; }
+.card .n { font-size: 20px; font-weight: 700; margin: 8px 0 10px; }
+.card .d { font-size: 12px; line-height: 1.75; opacity: .72; flex: 1; }
+.card .p { margin-top: 14px; font-size: 14px; font-weight: 700; }
+.p.cost { color: #ffd166; }
+.p.free { color: #8fe388; }
+.p.est  { color: #9fe3ff; }
+
+.key {
+  display: inline-block; border: 1px solid #555; padding: 0 5px;
+  margin-right: 6px; font-size: 10px; opacity: .6;
+}
+
+.btn {
+  margin-top: 26px; display: inline-block; border: 1px solid #555;
+  padding: 10px 26px; cursor: pointer; font-size: 13px; letter-spacing: 2px;
+}
+.btn:hover { border-color: #fff; background: #fff; color: #000; }
+.btn + .btn { margin-left: 10px; }
+
+.seedin {
+  background: #111116; border: 1px solid #3a3a42; color: #e8e8ec;
+  font-family: inherit; font-size: 13px; padding: 8px 12px;
+  width: 220px; text-align: center; letter-spacing: 2px;
+}
+.seedin:focus { outline: none; border-color: #fff; }
+
+#grade { font-size: 96px; font-weight: 700; line-height: 1; margin: 4px 0 10px; }
+#resbreak { font-size: 13px; line-height: 2.1; opacity: .85; display: inline-block; text-align: left; }
+#resbreak em { font-style: normal; display: inline-block; width: 150px; opacity: .6; }
+
+#toast {
+  position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
+  font-size: 12px; opacity: 0; transition: opacity .25s;
+  pointer-events: none; z-index: 20;
+}
+#toast.on { opacity: .8; }
+
+#help { position: absolute; bottom: 10px; left: 16px; font-size: 10px; opacity: .32; z-index: 5; }
