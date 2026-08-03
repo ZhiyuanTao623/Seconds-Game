@@ -1,4 +1,5 @@
 import { comboTax, formatSeconds } from '../game/pricing';
+import { onLocaleChange, t } from '../i18n/i18n';
 import type { Run } from '../game/run';
 import type { Player } from '../game/player';
 
@@ -23,7 +24,32 @@ export class Hud {
   private seedInfo = el('seedinfo');
   private upgrades = el('upglist');
 
+  private lblPlay = el('lblPlay');
+  private lblPen = el('lblPen');
+  private lblSpend = el('lblSpend');
+  private lblRef = el('lblRef');
+
   private lastUpgradeCount = -1;
+
+  constructor() {
+    this.applyStaticLabels();
+    // Hud 和 App 一样活到进程结束，不需要真的取消订阅
+    onLocaleChange(() => {
+      this.applyStaticLabels();
+      // 强化名字是取值时才查词典的 getter（见 game/upgrades.ts），
+      // 但 upglist 的 innerHTML 是按数量缓存的 —— 数量没变就不会重画，
+      // 必须手动作废一次缓存，语言切换才能立刻体现在已持有的强化上。
+      this.lastUpgradeCount = -1;
+    });
+  }
+
+  private applyStaticLabels(): void {
+    const s = t().hud;
+    this.lblPlay.textContent = s.play;
+    this.lblPen.textContent = s.pen;
+    this.lblSpend.textContent = s.spend;
+    this.lblRef.textContent = s.ref;
+  }
 
   update(run: Run | null, player: Player | null, dt: number): void {
     if (!run) return;
@@ -40,11 +66,11 @@ export class Hud {
 
     this.tax.textContent =
       player && player.streak > 0
-        ? `　连击税 ×${comboTax(player.streak).toFixed(2)} · ${formatSeconds(Math.max(0, player.streakT))}s 后清零`
+        ? t().hud.tax(comboTax(player.streak).toFixed(2), formatSeconds(Math.max(0, player.streakT)))
         : '';
 
     this.nodeInfo.textContent = run.floorLabel;
-    this.seedInfo.textContent = `SEED ${run.seed}`;
+    this.seedInfo.textContent = t().hud.seed(run.seed);
 
     if (run.owned.length !== this.lastUpgradeCount) {
       this.lastUpgradeCount = run.owned.length;
@@ -56,5 +82,7 @@ export class Hud {
     this.lastUpgradeCount = -1;
     this.upgrades.innerHTML = '';
     this.tax.textContent = '';
+    this.nodeInfo.textContent = '';
+    this.seedInfo.textContent = '';
   }
 }

@@ -1,4 +1,5 @@
 import { formatSeconds } from '../game/pricing';
+import { t } from '../i18n/i18n';
 import type { Scene, SceneContext } from './scene';
 import type { Renderer } from '../render/renderer';
 
@@ -13,22 +14,23 @@ export class ResultScene implements Scene {
     const { run, overlay } = this.ctx;
     const { letter, color } = run.grade;
     const { ledger } = run;
+    const s = t().result;
 
     overlay.show(`
-      <div class="ov-title">${run.won ? '章 节 通 关' : '结 束'}</div>
+      <div class="ov-title">${run.won ? s.clear : s.over}</div>
       <div id="grade" style="color:${color}">${letter}</div>
       <div style="font-size:40px;font-weight:700;margin-bottom:22px">${formatSeconds(ledger.total)}s</div>
       <div id="resbreak">
-        <em>游戏时间</em><span class="cPlay">${formatSeconds(ledger.play)}s</span><br>
-        <em>受击惩罚</em><span class="cPen">+${formatSeconds(ledger.penalty)}s</span><br>
-        <em>秒数消费</em><span class="cSpend">+${formatSeconds(ledger.spend)}s</span><br>
-        <em>击杀返还</em><span class="cRef">−${formatSeconds(ledger.refund)}s</span><br>
-        <em>SEED</em><span id="seedout" style="cursor:pointer;text-decoration:underline dotted">${run.seed}</span><br>
-        <em>持有强化</em>${run.owned.map((u) => u.name).join('、') || '无'}
+        <em>${s.play}</em><span class="cPlay">${formatSeconds(ledger.play)}s</span><br>
+        <em>${s.pen}</em><span class="cPen">+${formatSeconds(ledger.penalty)}s</span><br>
+        <em>${s.spend}</em><span class="cSpend">+${formatSeconds(ledger.spend)}s</span><br>
+        <em>${s.ref}</em><span class="cRef">−${formatSeconds(ledger.refund)}s</span><br>
+        <em>${s.seed}</em><span id="seedout" style="cursor:pointer;text-decoration:underline dotted">${run.seed}</span><br>
+        <em>${s.owned}</em>${run.owned.map((u) => u.name).join(s.listSep) || s.none}
       </div>
       <br>
-      <div class="btn" id="again">同 一 SEED 再 跑</div>
-      <div class="btn" id="fresh">换 一 局</div>
+      <div class="btn" id="again">${s.retry}</div>
+      <div class="btn" id="fresh">${s.fresh}</div>
     `);
 
     // 同 seed 重跑是竞速的基本诉求：同一张图才能比出谁快
@@ -36,7 +38,7 @@ export class ResultScene implements Scene {
     overlay.onClick('fresh', () => this.ctx.toTitle());
     overlay.onClick('seedout', () => {
       void navigator.clipboard?.writeText(String(run.seed));
-      overlay.toast('SEED 已复制');
+      overlay.toast(t().result.copied);
     });
   }
 

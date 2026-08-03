@@ -1,6 +1,7 @@
 import { COSTS } from '../game/config';
 import { drawMap, nodeAt } from '../render/drawMap';
 import { formatSeconds } from '../game/pricing';
+import { t } from '../i18n/i18n';
 import { CombatScene } from './combat';
 import { ShopScene } from './shop';
 import type { Scene, SceneContext } from './scene';
@@ -52,7 +53,7 @@ export class MapScene implements Scene {
         const cost = run.mendCost;
         run.ledger.addSpend(cost);
         const cut = run.ledger.mendPenalty(COSTS.mendRatio);
-        overlay.toast(`花费 ${cost}s，消除了 ${formatSeconds(cut)}s 惩罚`);
+        overlay.toast(t().map.mendToast(cost, formatSeconds(cut)));
         this.leave(node);
         return;
       }
@@ -60,7 +61,7 @@ export class MapScene implements Scene {
       case 'shortcut': {
         const cost = run.shortcutCost;
         run.ledger.addSpend(cost);
-        overlay.toast(`花费 ${cost}s 跳过一整层`);
+        overlay.toast(t().map.shortcutToast(cost));
         this.leave(node);
         return;
       }

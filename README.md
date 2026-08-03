@@ -1,5 +1,7 @@
 # 秒 · SECONDS
 
+**[English](README.en.md)**
+
 一个"时间即货币"的 2D 白模动作**竞速**原型。
 
 **你没有血量。** 被打中不会死，只会往计时器上加秒数。买强化要花秒、开捷径要花秒、修复伤势也要花秒。**连站在地图和商店界面思考，时钟也在走。**
@@ -65,6 +67,12 @@ npm test           # 报价一致性 + seed 可复现 + 启动冒烟
 
 **`seed + 总时间` 才构成一个可验证、可比较的成绩。**
 
+## 语言
+
+右上角 **`EN` / `中文`** 按钮随时切换界面语言，默认跟随浏览器语言，选择会记在本地存储里。切换是活的——已经拿到的强化、当前显示的商店/结算界面都会立刻换成新语言，不用重开。暂停界面也能切（时钟仍然是停着的）。
+
+英文文案见 [src/i18n/strings.ts](src/i18n/strings.ts)；两份词典的键集合完全一致，少翻译一个键会在编译期报错。
+
 ## 连击税
 
 挨打后有 0.4 秒无敌，但**别把它当成免费的穿墙权**。
@@ -99,6 +107,7 @@ src/
   core/      rng（seed 分流）· timeline（游戏时钟）· input · math
   game/      config（全部数值）· pricing（报价单一真相源）· ledger（时间账本）
              world（战斗世界）· player · enemies/（每种怪一个文件）· map · room · run
+  i18n/      strings（zh/en 两份词典）· i18n（当前语言状态 + 切换广播）
   render/    renderer · drawWorld · drawMap        —— 只读世界，绝不写它
   scenes/    title · mapScene · combat · reward · shop · result
   ui/        hud · overlay

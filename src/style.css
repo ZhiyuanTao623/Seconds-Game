@@ -29,9 +29,16 @@ canvas { display: block; background: #0d0d10; image-rendering: auto; }
 .cPen  { color: #ff6a6a; }
 .cSpend{ color: #ffd166; }
 .cRef  { color: #8fe388; }
-#bTax { color: #ff8a5c; font-weight: 700; }
+#bTax { color: #ff8a5c; font-weight: 700; margin-left: 8px; }
 
 #rightbox { text-align: right; }
+#langToggle {
+  display: inline-block; pointer-events: auto; cursor: pointer;
+  border: 1px solid #555; padding: 1px 7px; margin-bottom: 8px;
+  font-size: 10px; letter-spacing: 1px; opacity: .6;
+  transition: opacity .12s, border-color .12s;
+}
+#langToggle:hover { opacity: 1; border-color: #fff; }
 #nodeinfo { font-size: 12px; opacity: .7; }
 #seedinfo { margin-top: 6px; font-size: 11px; opacity: .42; letter-spacing: 1px; }
 #upglist { margin-top: 8px; font-size: 11px; opacity: .85; line-height: 1.7; max-width: 240px; }

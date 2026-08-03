@@ -208,12 +208,5 @@ function rerouteShortcuts(map: RunMap): void {
 }
 
 // ---------------------------------------------------------------- 查询
-
-export const ROOM_LABEL: Record<RoomKind, string> = {
-  combat: '战斗房',
-  elite: '精英房',
-  shop: '秒 · 商店',
-  mend: '时间修复站',
-  shortcut: '捷径门',
-  boss: 'BOSS',
-};
+// 房间标签/提示文案已经搬进 i18n/strings.ts（Strings.rooms），
+// 这样地图不用关心当前是哪种语言。

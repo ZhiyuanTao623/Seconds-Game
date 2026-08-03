@@ -2,6 +2,7 @@ import { COSTS, GRADES } from './config';
 import { Ledger } from './ledger';
 import { generateMap } from './map';
 import { computeStats } from './upgrades';
+import { t } from '../i18n/i18n';
 import { RngStream } from '../core/rng';
 import type { MapNode, RunMap } from './map';
 import type { Stats } from './config';
@@ -86,6 +87,6 @@ export class Run {
 
   get floorLabel(): string {
     const floor = this.current?.floor ?? 1;
-    return `第 ${floor} 层 / ${this.map.byFloor.length}`;
+    return t().hud.floor(floor, this.map.byFloor.length);
   }
 }

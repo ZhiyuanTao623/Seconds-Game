@@ -1,14 +1,37 @@
 import type { Stats } from './config';
 import { BASE_STATS } from './config';
+import { t } from '../i18n/i18n';
 import type { RngStream } from '../core/rng';
+import type { UpgradeId } from '../i18n/i18n';
 
 export interface Upgrade {
-  id: string;
-  name: string;
+  readonly id: UpgradeId;
   /** 商店基础价（秒）。战斗房掉落免费。 */
-  cost: number;
-  desc: string;
+  readonly cost: number;
+  readonly name: string;
+  readonly desc: string;
   apply(s: Stats): void;
+}
+
+interface UpgradeDef {
+  id: UpgradeId;
+  cost: number;
+  apply(s: Stats): void;
+}
+
+/**
+ * `name`/`desc` 做成 getter，取值时才去查当前语言的词典 —— 不是构造时
+ * 拍死的字符串。这样切换语言不需要重建任何一个已经拿到的 Upgrade 引用：
+ * 结算页里躺着的旧强化列表、HUD 里已经攒了半局的强化条，读一次就是新语言。
+ */
+function mkUpgrade(def: UpgradeDef): Upgrade {
+  return {
+    id: def.id,
+    cost: def.cost,
+    apply: def.apply,
+    get name(): string { return t().upgrades[def.id].name; },
+    get desc(): string { return t().upgrades[def.id].desc; },
+  };
 }
 
 /**
@@ -18,76 +41,24 @@ export interface Upgrade {
  * 操作前提 —— 输出必须贴身、冲刺是纯防御、按住左键连点。
  */
 export const UPGRADES: readonly Upgrade[] = [
-  {
-    id: 'blade', name: '利刃', cost: 14,
-    desc: '伤害 +60%，但受击时间惩罚 +40%。',
-    apply: (s) => { s.dmg *= 1.6; s.penMult *= 1.4; },
-  },
-  {
-    id: 'gale', name: '疾风', cost: 16,
-    desc: '移速 +16%，冲刺冷却 -35%。',
-    apply: (s) => { s.spd *= 1.16; s.dashCd *= 0.65; },
-  },
-  {
-    id: 'tough', name: '韧体', cost: 15,
-    desc: '受击时间惩罚 -35%，但伤害 -15%。',
-    apply: (s) => { s.penMult *= 0.65; s.dmg *= 0.85; },
-  },
-  {
-    id: 'reach', name: '长刃', cost: 12,
-    desc: '攻击范围 +45%，挥砍弧度略增。',
-    apply: (s) => { s.range *= 1.45; s.arc *= 1.15; },
-  },
-  {
-    id: 'rapid', name: '连斩', cost: 14,
-    desc: '攻击速度 +40%，单次伤害 -10%。',
-    apply: (s) => { s.atkCd *= 0.6; s.dmg *= 0.9; },
-  },
-  {
-    id: 'exec', name: '处决', cost: 20,
-    desc: '敌人生命低于 30% 时被斩击立即斩杀。',
-    apply: (s) => { s.exec = Math.max(s.exec, 0.3); },
-  },
-  {
-    id: 'greed', name: '贪婪', cost: 13,
-    desc: '此后所有秒数消费 -35%。',
-    apply: (s) => { s.costMult *= 0.65; },
-  },
-  {
-    id: 'stasis', name: '时停', cost: 18,
-    desc: '冲刺时全场减速 60%，持续 0.55 秒。',
-    apply: (s) => { s.dashSlow = 0.55; },
-  },
-  {
-    id: 'riposte', name: '反击', cost: 11,
-    desc: '受击后 2 秒内伤害 +85%。',
-    apply: (s) => { s.counterDmg = 0.85; },
-  },
-  {
-    id: 'abacus', name: '精算', cost: 15,
-    desc: '每击杀一个敌人返还 0.5 秒。',
-    apply: (s) => { s.refund += 0.5; },
-  },
+  mkUpgrade({ id: 'blade', cost: 14, apply: (s) => { s.dmg *= 1.6; s.penMult *= 1.4; } }),
+  mkUpgrade({ id: 'gale', cost: 16, apply: (s) => { s.spd *= 1.16; s.dashCd *= 0.65; } }),
+  mkUpgrade({ id: 'tough', cost: 15, apply: (s) => { s.penMult *= 0.65; s.dmg *= 0.85; } }),
+  mkUpgrade({ id: 'reach', cost: 12, apply: (s) => { s.range *= 1.45; s.arc *= 1.15; } }),
+  mkUpgrade({ id: 'rapid', cost: 14, apply: (s) => { s.atkCd *= 0.6; s.dmg *= 0.9; } }),
+  mkUpgrade({ id: 'exec', cost: 20, apply: (s) => { s.exec = Math.max(s.exec, 0.3); } }),
+  mkUpgrade({ id: 'greed', cost: 13, apply: (s) => { s.costMult *= 0.65; } }),
+  mkUpgrade({ id: 'stasis', cost: 18, apply: (s) => { s.dashSlow = 0.55; } }),
+  mkUpgrade({ id: 'riposte', cost: 11, apply: (s) => { s.counterDmg = 0.85; } }),
+  mkUpgrade({ id: 'abacus', cost: 15, apply: (s) => { s.refund += 0.5; } }),
 
   // ---- 改变操作方式的三个
-  {
-    id: 'throw', name: '掷刃', cost: 17,
-    desc: '每次挥砍额外向光标方向掷出一枚刃弹（伤害 55%）。<b>你不再必须贴身才有输出。</b>',
-    apply: (s) => { s.projectile = true; },
-  },
-  {
-    id: 'phantom', name: '掠影', cost: 16,
-    desc: '冲刺穿过敌人时造成 120% 伤害，每次冲刺对同一敌人只结算一次。<b>冲刺不再只是逃跑键。</b>',
-    apply: (s) => { s.dashDamage = 1.2; },
-  },
-  {
-    id: 'charge', name: '蓄力', cost: 15,
-    desc: '按住左键 0.5 秒蓄力，松开打出 260% 伤害的 360° 全向斩。<b>代价：按住不再自动连砍。</b>',
-    apply: (s) => { s.chargedSlash = true; },
-  },
+  mkUpgrade({ id: 'throw', cost: 17, apply: (s) => { s.projectile = true; } }),
+  mkUpgrade({ id: 'phantom', cost: 16, apply: (s) => { s.dashDamage = 1.2; } }),
+  mkUpgrade({ id: 'charge', cost: 15, apply: (s) => { s.chargedSlash = true; } }),
 ];
 
-const UPGRADE_BY_ID = new Map(UPGRADES.map((u) => [u.id, u]));
+const UPGRADE_BY_ID = new Map<string, Upgrade>(UPGRADES.map((u) => [u.id, u]));
 export const upgradeById = (id: string): Upgrade | undefined => UPGRADE_BY_ID.get(id);
 
 /** 把持有的强化叠到基础值上。顺序无关 —— 全部是乘法或取最大值。 */

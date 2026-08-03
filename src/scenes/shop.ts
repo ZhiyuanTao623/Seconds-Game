@@ -2,6 +2,7 @@ import { REWARDS } from '../game/config';
 import { cardsHtml } from '../ui/overlay';
 import { drawUpgrades } from '../game/upgrades';
 import { formatSeconds } from '../game/pricing';
+import { t } from '../i18n/i18n';
 import type { CardSpec } from '../ui/overlay';
 import type { Scene, SceneContext } from './scene';
 import type { Renderer } from '../render/renderer';
@@ -40,12 +41,13 @@ export class ShopScene implements Scene {
 
   private render_(): void {
     const { run, overlay } = this.ctx;
+    const s = t().shop;
 
     const cards: CardSpec[] = this.stock.map((u) =>
       u === null
-        ? { kind: '已 售 出', name: '—', desc: '', price: { cls: 'cost', text: '' }, disabled: true }
+        ? { kind: s.sold, name: '—', desc: '', price: { cls: 'cost', text: '' }, disabled: true }
         : {
-            kind: '强化',
+            kind: t().reward.kind,
             name: u.name,
             desc: u.desc,
             price: { cls: 'cost', text: `− ${run.shopPrice(u)}s` },
@@ -53,14 +55,14 @@ export class ShopScene implements Scene {
     );
 
     overlay.show(`
-      <div class="ov-title">秒 · 商 店</div>
+      <div class="ov-title">${s.title}</div>
       <div class="ov-sub">
-        你永远买得起 —— 因为代价直接记在你的计时器上。<br>
-        当前总计 <b style="color:#fff">${formatSeconds(run.ledger.total)}s</b> ·
-        <b style="color:#ff8a5c">逛店也在计时</b>
+        ${s.body}<br>
+        ${s.total(`<b style="color:#fff">${formatSeconds(run.ledger.total)}s</b>`)}
+        <b style="color:#ff8a5c">${s.clockNote}</b>
       </div>
       ${cardsHtml(cards)}
-      <div class="btn" id="leave">离 开 商 店</div>
+      <div class="btn" id="leave">${s.leave}</div>
     `);
 
     overlay.onCards((i) => this.buy(i));
@@ -76,7 +78,7 @@ export class ShopScene implements Scene {
     this.ctx.run.takeUpgrade(upgrade);
     this.stock[index] = null;
 
-    this.ctx.overlay.toast(`花费 ${price}s 购入 ${upgrade.name}`);
+    this.ctx.overlay.toast(t().shop.bought(price, upgrade.name));
     this.render_();
   }
 

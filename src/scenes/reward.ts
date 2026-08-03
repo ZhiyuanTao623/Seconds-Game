@@ -1,5 +1,6 @@
 import { cardsHtml } from '../ui/overlay';
 import { drawUpgrades } from '../game/upgrades';
+import { t } from '../i18n/i18n';
 import type { CardSpec } from '../ui/overlay';
 import type { Scene, SceneContext } from './scene';
 import type { Renderer } from '../render/renderer';
@@ -27,16 +28,17 @@ export class RewardScene implements Scene {
   enter(): void {
     if (this.options.length === 0) { this.leave(); return; }
 
+    const s = t().reward;
     const cards: CardSpec[] = this.options.map((u) => ({
-      kind: '强化',
+      kind: s.kind,
       name: u.name,
       desc: u.desc,
-      price: { cls: 'free', text: '免费 · 已用战斗时间支付' },
+      price: { cls: 'free', text: s.free },
     }));
 
     this.ctx.overlay.show(`
-      <div class="ov-title">房 间 已 清 空</div>
-      <div class="ov-sub">你用游戏时间换来了它 —— 免费拿走一个。<b style="color:#ff8a5c">时钟还在走。</b></div>
+      <div class="ov-title">${s.cleared}</div>
+      <div class="ov-sub">${s.body}<b style="color:#ff8a5c">${s.clockNote}</b></div>
       ${cardsHtml(cards)}
     `);
     this.ctx.overlay.onCards((i) => this.pick(i));
@@ -54,7 +56,7 @@ export class RewardScene implements Scene {
     const upgrade = this.options[index];
     if (!upgrade) return;
     this.ctx.run.takeUpgrade(upgrade);
-    this.ctx.overlay.toast(`获得 ${upgrade.name}`);
+    this.ctx.overlay.toast(t().reward.got(upgrade.name));
     this.leave();
   }
 

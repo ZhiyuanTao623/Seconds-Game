@@ -4,6 +4,7 @@ import { Renderer } from './render/renderer';
 import { Run } from './game/run';
 import { Hud } from './ui/hud';
 import { Overlay } from './ui/overlay';
+import { getLocale, onLocaleChange, t, toggleLocale } from './i18n/i18n';
 import { MapScene } from './scenes/mapScene';
 import { ResultScene } from './scenes/result';
 import { TitleScene } from './scenes/title';
@@ -24,6 +25,10 @@ export class App implements SceneContext {
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas);
     this.input = new Input(canvas, { w: ARENA.w, h: ARENA.h });
+    this.applyLocaleToChrome();
+    document.getElementById('langToggle')?.addEventListener('click', () => toggleLocale());
+    onLocaleChange(this.onLocaleChange);
+
     this.activeScene = new TitleScene(this);
     this.activeScene.enter?.();
     requestAnimationFrame(this.frame);
@@ -62,24 +67,62 @@ export class App implements SceneContext {
     this.go(new TitleScene(this));
   }
 
+  // ---------------------------------------------------------------- 语言
+
+  /** 页面里不归属任何场景的静态文字：帮助条、语言按钮、<title>、<html lang>。 */
+  private applyLocaleToChrome(): void {
+    document.documentElement.lang = t().meta.htmlLang;
+    document.title = t().meta.title;
+
+    const help = document.getElementById('help');
+    if (help) help.textContent = t().help;
+
+    const toggle = document.getElementById('langToggle');
+    if (toggle) toggle.textContent = getLocale() === 'zh' ? 'EN' : '中文';
+  }
+
+  private onLocaleChange = (): void => {
+    this.applyLocaleToChrome();
+
+    if (this.paused) {
+      this.renderPauseOverlay();
+      return;
+    }
+    if (!this.overlay.isOpen) return;
+
+    // 标题页的 seed 输入框会在 enter() 里被整个重建，抢救一下正在打的字
+    const seedField = document.getElementById('seed') as HTMLInputElement | null;
+    const savedSeed = seedField?.value;
+    this.activeScene.enter?.();
+    if (savedSeed) {
+      const restored = document.getElementById('seed') as HTMLInputElement | null;
+      if (restored) restored.value = savedSeed;
+    }
+  };
+
   // ---------------------------------------------------------------- 暂停
+
+  private renderPauseOverlay(): void {
+    const s = t().pause;
+    this.overlay.show(`
+      <div class="ov-title">${s.title}</div>
+      <div class="ov-sub">
+        ${s.note1}<br>
+        ${s.note2}
+      </div>
+      <div class="btn" id="resume">${s.resume}</div>
+      <div class="btn" id="quit">${s.quit}</div>
+    `, { opaque: true });
+    this.overlay.onClick('resume', () => this.setPaused(false));
+    this.overlay.onClick('quit', () => this.toTitle());
+  }
 
   private setPaused(value: boolean): void {
     if (this.paused === value) return;
     this.paused = value;
 
     if (value) {
-      this.overlay.show(`
-        <div class="ov-title">已 暂 停</div>
-        <div class="ov-sub">
-          时钟已停。<br>
-          这块遮罩是故意画满的 —— 暂停不该变成「停表慢慢看清场面」的后门。
-        </div>
-        <div class="btn" id="resume">继 续</div>
-        <div class="btn" id="quit">回 标 题</div>
-      `, { opaque: true });
-      this.overlay.onClick('resume', () => this.setPaused(false));
-      this.overlay.onClick('quit', () => this.toTitle());
+      this.renderPauseOverlay();
     } else {
       this.overlay.hide();
       // 场景自己的界面（奖励卡、货架）刚才被暂停遮罩顶掉了，重建一次

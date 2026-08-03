@@ -1,6 +1,7 @@
 import { FEEL, REWARDS } from '../game/config';
 import { buildRoom } from '../game/room';
 import { drawWorld } from '../render/drawWorld';
+import { t } from '../i18n/i18n';
 import { RewardScene } from './reward';
 import type { Scene, SceneContext } from './scene';
 import type { Renderer } from '../render/renderer';
@@ -22,7 +23,7 @@ export class CombatScene implements Scene {
     this.world = buildRoom(ctx.run, node);
     const rng = ctx.run.rngFor(node.id, 'shake');
     this.shakeRng = () => rng.float();
-    if (node.kind === 'boss') ctx.overlay.toast('最终节点');
+    if (node.kind === 'boss') ctx.overlay.toast(t().combat.finalFloor);
   }
 
   get player(): Player { return this.world.player; }

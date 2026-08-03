@@ -1,6 +1,6 @@
 import { ARENA, MAP } from '../game/config';
 import { TAU } from '../core/math';
-import { ROOM_LABEL } from '../game/map';
+import { t } from '../i18n/i18n';
 import type { Renderer } from './renderer';
 import type { MapNode, RoomKind, RunMap } from '../game/map';
 import type { Vec2 } from '../core/math';
@@ -60,7 +60,7 @@ export function drawMap(
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(232,232,236,.55)';
   ctx.font = '13px monospace';
-  ctx.fillText('选 择 路 线 —— 时 钟 正 在 走', ARENA.w / 2, 38);
+  ctx.fillText(t().map.hint, ARENA.w / 2, 38);
 
   if (hovered) drawTooltip(r, hovered);
 }
@@ -122,7 +122,7 @@ function drawNode(r: Renderer, n: MapNode, selectable: boolean, current: boolean
   ctx.fillStyle = color;
   ctx.font = '9px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(ROOM_LABEL[n.kind], pos.x, pos.y + NODE_R + 14);
+  ctx.fillText(t().rooms[n.kind].label, pos.x, pos.y + NODE_R + 14);
   ctx.restore();
 }
 
@@ -144,24 +144,16 @@ function drawShape(r: Renderer, kind: RoomKind, x: number, y: number, size: numb
   }
 }
 
-const KIND_HINT: Record<RoomKind, string> = {
-  combat: '常规敌人 · 清空后 2 选 1 免费强化',
-  elite: '更多更硬的敌人 · 清空后 3 选 1 免费强化',
-  shop: '用秒数直接买强化 · 逛店期间时钟在走',
-  mend: '花秒数抹掉一部分已累计的受击惩罚',
-  shortcut: '花秒数跳过一整层 · 少打一场，也少拿一个强化',
-  boss: '最终节点',
-};
-
 function drawTooltip(r: Renderer, n: MapNode): void {
   const { ctx } = r;
+  const room = t().rooms[n.kind];
   ctx.save();
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(232,232,236,.8)';
   ctx.font = '700 14px monospace';
-  ctx.fillText(ROOM_LABEL[n.kind], ARENA.w / 2, ARENA.h - 34);
+  ctx.fillText(room.label, ARENA.w / 2, ARENA.h - 34);
   ctx.fillStyle = 'rgba(232,232,236,.45)';
   ctx.font = '11px monospace';
-  ctx.fillText(KIND_HINT[n.kind], ARENA.w / 2, ARENA.h - 16);
+  ctx.fillText(room.hint, ARENA.w / 2, ARENA.h - 16);
   ctx.restore();
 }
