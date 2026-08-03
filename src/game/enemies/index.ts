@@ -1,6 +1,7 @@
 import { charger } from './charger';
 import { shooter } from './shooter';
 import { brute } from './brute';
+import { medic } from './medic';
 import { boss } from './boss';
 import type { EnemyBehavior } from './behavior';
 import type { Enemy, EnemyKind } from '../entities';
@@ -11,6 +12,7 @@ const REGISTRY: Record<EnemyKind, EnemyBehavior> = {
   charger,
   shooter,
   brute,
+  medic,
   boss,
 };
 

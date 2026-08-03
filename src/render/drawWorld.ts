@@ -1,4 +1,4 @@
-import { ARENA, BOSS, BRUTE, CHARGED_SLASH, CHARGER, SHOOTER } from '../game/config';
+import { ARENA, BOSS, BRUTE, CHARGED_SLASH, CHARGER, MEDIC, SHOOTER } from '../game/config';
 import { TAU, clamp, dist } from '../core/math';
 import { labelFor } from '../game/pricing';
 import { threatOf } from '../game/enemies';
@@ -117,6 +117,11 @@ function drawEnemy(r: Renderer, world: World, e: Enemy, priceCtx: PriceContext):
       ctx.fill();
       ctx.stroke();
       break;
+    case 'medic':
+      r.polygon(e.x, e.y, e.r, 5, -Math.PI / 2);
+      ctx.fill();
+      ctx.stroke();
+      break;
     case 'boss':
       r.polygon(e.x, e.y, e.r, 8, performance.now() / 2600);
       ctx.fill();
@@ -131,7 +136,10 @@ function drawEnemy(r: Renderer, world: World, e: Enemy, priceCtx: PriceContext):
   drawPrice(r, e.x, e.y + e.r + 14, threatOf(e), priceCtx, 1, 10);
 }
 
-/** 红色 = 马上要收你钱。所有预警都用同一套语言。 */
+/**
+ * 红色 = 马上要收你钱，所有会直接威胁玩家的预警都用同一套语言。
+ * 医疗兵是例外：它的橙色预警和秒数账本无关，读作「这不会打你，但你该管」。
+ */
 function drawTelegraph(r: Renderer, e: Enemy): void {
   const { ctx } = r;
   ctx.save();
@@ -172,6 +180,19 @@ function drawTelegraph(r: Renderer, e: Enemy): void {
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(e.x, e.y, BRUTE.blastRadius * k, 0, TAU);
+    ctx.stroke();
+  }
+
+  if (e.state === 'telegraph' && e.kind === 'medic') {
+    const k = 1 - e.t / MEDIC.telegraph;
+    ctx.fillStyle = `rgba(255,138,92,${0.08 + k * 0.14})`;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, MEDIC.healRadius, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,138,92,.85)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, MEDIC.healRadius * k, 0, TAU);
     ctx.stroke();
   }
 

@@ -57,6 +57,9 @@ function combatPlan(rng: RngStream, floor: number): EnemyKind[] {
     plan.push(rng.pick(['charger', 'charger', 'shooter'] as const));
   }
   if (floor >= 3) plan.push('brute');
+  // 比重甲早一层出现——先教玩家认识"躲在盟友背后回血"这件事，
+  // 再让重甲把"清路"这件事变得更贵
+  if (floor >= 2) plan.push('medic');
   return plan;
 }
 
@@ -66,6 +69,9 @@ function elitePlan(rng: RngStream, floor: number): EnemyKind[] {
   for (let i = 0; i < 2 + floor; i++) {
     plan.push(rng.pick(['charger', 'shooter'] as const));
   }
+  // 精英房按地图规则从不在 floor<3 出现（见 map.ts 的 elite 约束），
+  // 所以这里不用再加 floor 门槛——精英房必带一个医疗兵
+  plan.push('medic');
   return plan;
 }
 

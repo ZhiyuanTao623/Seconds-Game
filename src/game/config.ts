@@ -109,10 +109,12 @@ export interface EnemyStatBlock {
   spd: number;
 }
 
-export const ENEMY: Record<'charger' | 'shooter' | 'brute', EnemyStatBlock> = {
+export const ENEMY: Record<'charger' | 'shooter' | 'brute' | 'medic', EnemyStatBlock> = {
   charger: { hp: 32, radius: 15, pen: 2.0, spd: 96 },
   shooter: { hp: 24, radius: 13, pen: 1.5, spd: 118 },
   brute:   { hp: 78, radius: 24, pen: 4.0, spd: 64 },
+  /** pen: 0 → 永远不挂价签，见 pricing.ts 的 priceLabel(0) === null */
+  medic:   { hp: 20, radius: 13, pen: 0,   spd: 100 },
 };
 
 export const CHARGER = {
@@ -147,6 +149,27 @@ export const BRUTE = {
   cooldown: [0.8, 1.6] as const,
   initialCooldown: [0.3, 1.4] as const,
   shake: 10,
+} as const;
+
+/**
+ * 医疗兵：不直接威胁玩家，靠给附近小兵加血间接拖慢你。
+ * 站位躲在离玩家最近的盟友背后，逼玩家先清路才能碰到它。
+ */
+export const MEDIC = {
+  /** 目标站位 = 锚点盟友位置 + (锚点→玩家方向取反) × followDistance */
+  followDistance: 70,
+  /** 离目标站位多近就不再挪，防止贴脸抖动 */
+  approachStop: 20,
+
+  initialCooldown: [0.6, 1.6] as const,
+  /** 两次治疗之间的间隔 */
+  cooldown: [2.2, 3.2] as const,
+  telegraph: 0.9,
+  recover: 1.0,
+
+  healRadius: 140,
+  /** 半管冲锋兵血量左右，逼玩家出更多 DPS 或者干脆先杀医疗兵 */
+  healAmount: 16,
 } as const;
 
 // ---------------------------------------------------------------- BOSS

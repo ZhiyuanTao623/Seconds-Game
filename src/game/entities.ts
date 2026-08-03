@@ -1,6 +1,6 @@
 import type { Vec2 } from '../core/math';
 
-export type EnemyKind = 'charger' | 'shooter' | 'brute' | 'boss';
+export type EnemyKind = 'charger' | 'shooter' | 'brute' | 'medic' | 'boss';
 
 /** 敌人状态机的状态名。各类型共用这套词汇，但含义由各自的行为文件解释。 */
 export type EnemyState =
