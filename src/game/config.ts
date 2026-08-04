@@ -184,6 +184,15 @@ export const BOSS = {
   approachStop: 200,
   initialCooldown: 1.2,
 
+  /** 半血后进入「回收」阶段：复用已有招式，但每招都多一段反向处理。 */
+  phaseTwo: {
+    threshold: 0.5,
+    shiftTime: 0.8,
+    /** 每个回收动作结束后的破绽；奖励敢贴身的玩家。 */
+    weakPointTime: 0.6,
+    weakPointDamageMult: 1.5,
+  },
+
   /** 招式权重。屏幕上的分招式报价必须和这里的 pen 对得上。 */
   burst: {
     weight: 38,
@@ -194,6 +203,12 @@ export const BOSS = {
     bullet: { radius: 7, speed: 280, life: 4 },
     cooldown: 1.0,
     shake: 12,
+    recall: {
+      /** 二阶段第二圈的等待时间；第一圈和第二圈的缺口相反。 */
+      gap: 2,
+      count: 10,
+      delay: 0.42,
+    },
   },
   charge: {
     weight: 34,
@@ -204,6 +219,7 @@ export const BOSS = {
     speed: 700,
     repeats: 3,
     cooldown: 1.3,
+    recallTelegraph: 0.48,
   },
   slam: {
     weight: 28,
@@ -218,6 +234,7 @@ export const BOSS = {
     bandWidth: 46,
     cooldown: 1.1,
     shake: 16,
+    recallTelegraph: 0.58,
   },
 } as const;
 

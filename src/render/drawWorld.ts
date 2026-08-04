@@ -123,11 +123,21 @@ function drawEnemy(r: Renderer, world: World, e: Enemy, priceCtx: PriceContext):
       ctx.stroke();
       break;
     case 'boss':
+      if (e.phaseTwo) {
+        ctx.strokeStyle = e.vulnerable > 0 ? '#ffd166' : '#ff6a6a';
+        ctx.lineWidth = e.vulnerable > 0 ? 4 : 3;
+      }
       r.polygon(e.x, e.y, e.r, 8, performance.now() / 2600);
       ctx.fill();
       ctx.stroke();
       r.polygon(e.x, e.y, e.r * 0.55, 4, -performance.now() / 1800);
       ctx.stroke();
+      if (e.vulnerable > 0) {
+        ctx.fillStyle = '#ffd166';
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, 7, 0, TAU);
+        ctx.fill();
+      }
       break;
   }
 
@@ -207,6 +217,16 @@ function drawTelegraph(r: Renderer, e: Enemy): void {
     ctx.stroke();
   }
 
+  if (e.state === 'bossRecallChargeTel') {
+    const k = 1 - e.t / BOSS.charge.recallTelegraph;
+    ctx.strokeStyle = `rgba(255,138,92,${0.4 + k * 0.5})`;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(e.x, e.y);
+    ctx.lineTo(e.x + Math.cos(e.dir) * BOSS.charge.telegraphRay, e.y + Math.sin(e.dir) * BOSS.charge.telegraphRay);
+    ctx.stroke();
+  }
+
   if (e.state === 'bossBurstTel') {
     const k = 1 - e.t / BOSS.burst.telegraph;
     ctx.strokeStyle = 'rgba(255,60,60,.8)';
@@ -223,6 +243,17 @@ function drawTelegraph(r: Renderer, e: Enemy): void {
     for (const radius of BOSS.slam.radii) {
       ctx.beginPath();
       ctx.arc(e.x, e.y, radius * k, 0, TAU);
+      ctx.stroke();
+    }
+  }
+
+  if (e.state === 'bossSlamRecallTel' && e.t <= BOSS.slam.recallTelegraph) {
+    const k = 1 - e.t / BOSS.slam.recallTelegraph;
+    ctx.strokeStyle = 'rgba(255,138,92,.8)';
+    ctx.lineWidth = 2;
+    for (const radius of BOSS.slam.radii) {
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, radius * (1 - k), 0, TAU);
       ctx.stroke();
     }
   }

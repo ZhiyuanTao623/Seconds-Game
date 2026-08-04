@@ -5,7 +5,10 @@ export type EnemyKind = 'charger' | 'shooter' | 'brute' | 'medic' | 'boss';
 /** 敌人状态机的状态名。各类型共用这套词汇，但含义由各自的行为文件解释。 */
 export type EnemyState =
   | 'idle' | 'telegraph' | 'attack' | 'recover'
-  | 'bossBurstTel' | 'bossChargeTel' | 'bossCharge' | 'bossSlamTel';
+  | 'bossPhaseShift'
+  | 'bossBurstTel' | 'bossBurstRecall'
+  | 'bossChargeTel' | 'bossCharge' | 'bossRecallChargeTel' | 'bossRecallCharge'
+  | 'bossSlamTel' | 'bossSlamRecallTel' | 'bossSlamRecall';
 
 export interface Enemy {
   kind: EnemyKind;
@@ -37,6 +40,10 @@ export interface Enemy {
 
   /** Boss 三连冲锋的剩余次数 */
   comboLeft: number;
+  /** Boss 是否已进入半血后的「回收」阶段。其他敌人恒为 false。 */
+  phaseTwo: boolean;
+  /** Boss 回收动作结束后的破绽剩余时间。 */
+  vulnerable: number;
   /** 本次冲刺已经打过的敌人（掠影用），冲刺结束时清空 */
   hitThisDash?: Set<Enemy>;
 }

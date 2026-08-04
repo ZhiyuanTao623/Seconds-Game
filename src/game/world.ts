@@ -1,4 +1,4 @@
-import { FEEL, HIT, PLAYER } from './config';
+import { BOSS, FEEL, HIT, PLAYER } from './config';
 import { Arena } from './arena';
 import { Fx } from './fx';
 import { Timeline } from '../core/timeline';
@@ -97,6 +97,7 @@ export class World {
   damageEnemy(e: Enemy, damage: number): void {
     let d = damage;
     if (this.stats.counterDmg > 0 && this.player.counter > 0) d *= 1 + this.stats.counterDmg;
+    if (e.kind === 'boss' && e.vulnerable > 0) d *= BOSS.phaseTwo.weakPointDamageMult;
 
     e.hp -= d;
     e.flash = 0.12;

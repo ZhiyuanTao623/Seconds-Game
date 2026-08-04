@@ -44,5 +44,7 @@ export function baseEnemy(
     dead: false,
     threat: 0,
     comboLeft: 0,
+    phaseTwo: false,
+    vulnerable: 0,
   };
 }
