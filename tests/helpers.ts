@@ -4,17 +4,23 @@ import { World } from '../src/game/world';
 import { computeStats, upgradeById } from '../src/game/upgrades';
 import { labelFor, penaltyFor, priceLabel } from '../src/game/pricing';
 import type { PriceContext } from '../src/game/pricing';
-import type { Upgrade } from '../src/game/upgrades';
+import type { EvolutionBranch, Upgrade } from '../src/game/upgrades';
 import type { ModuleId } from '../src/game/modules';
+import type { UpgradeId } from '../src/i18n/i18n';
 
 /** 造一个不需要浏览器的空房间。默认模组是飞刃 —— 大多数用例不关心具体是哪个。 */
-export function makeWorld(upgradeIds: readonly string[] = [], module: ModuleId = 'blade', layout = 4): World {
+export function makeWorld(
+  upgradeIds: readonly string[] = [],
+  module: ModuleId = 'blade',
+  layout = 4,
+  evolved: ReadonlyMap<UpgradeId, EvolutionBranch> = new Map(),
+): World {
   const owned: Upgrade[] = upgradeIds.map((id) => {
     const u = upgradeById(id);
     if (!u) throw new Error(`unknown upgrade: ${id}`);
     return u;
   });
-  return new World(layout, new RngStream(1234), new Ledger(), computeStats(module, owned));
+  return new World(layout, new RngStream(1234), new Ledger(), computeStats(module, owned, evolved));
 }
 
 export interface Charge {

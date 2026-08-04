@@ -1,6 +1,6 @@
 import { HIT, MODULES, PLAYER } from './config';
 import { TAU, angleDiff, angleTo, dist, friction } from '../core/math';
-import type { Enemy } from './entities';
+import type { Bullet, Enemy } from './entities';
 import type { World } from './world';
 import type { InputSource } from '../core/input';
 
@@ -232,7 +232,7 @@ function slash(world: World, charged: boolean): void {
 
   // 飞刃只挂在普通挥砍上 —— 全向斩已经是 360°，再往一个方向丢一枚没有意义
   if (s.projectile && !charged) {
-    world.bullets.push({
+    const bullet: Bullet = {
       x: p.x, y: p.y,
       vx: Math.cos(p.aim) * MODULES.blade.speed,
       vy: Math.sin(p.aim) * MODULES.blade.speed,
@@ -242,6 +242,26 @@ function slash(world: World, charged: boolean): void {
       dead: false,
       hostile: false,
       damage: s.dmg * s.projectileDamageMult,
-    });
+    };
+
+    if (s.bladePierceMode !== 'off') {
+      bullet.pierceMode = s.bladePierceMode;
+      bullet.pierceLeft = s.bladePierce;
+      bullet.pierceFalloff = s.bladePierceFalloff;
+      bullet.pierceBonus = s.bladePierceBonus;
+      bullet.hitEnemies = new Set();
+    } else if (s.bladeReturn) {
+      // 回旋但没贯刃：仍需要去重集合——去程和回程各命中一次
+      bullet.hitEnemies = new Set();
+    }
+
+    if (s.bladeReturn) {
+      bullet.phase = 'out';
+      bullet.maxRange = MODULES.blade.speed * MODULES.blade.life;
+      bullet.originX = p.x;
+      bullet.originY = p.y;
+    }
+
+    world.bullets.push(bullet);
   }
 }

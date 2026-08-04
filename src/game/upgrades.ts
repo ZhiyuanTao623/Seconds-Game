@@ -1,5 +1,5 @@
 import type { Stats } from './config';
-import { BASE_STATS } from './config';
+import { BASE_STATS, MODULES } from './config';
 import { t } from '../i18n/i18n';
 import type { RngStream } from '../core/rng';
 import type { ModuleId } from './modules';
@@ -67,6 +67,20 @@ export const UPGRADES: readonly Upgrade[] = [
   mkUpgrade({ id: 'un_blade', module: 'universal', cost: 13, apply: (s) => { s.dmg *= 1.22; s.penMult *= 1.15; } }),
   mkUpgrade({ id: 'un_tough', module: 'universal', cost: 12, apply: (s) => { s.penMult *= 0.78; s.dmg *= 0.94; } }),
   mkUpgrade({ id: 'un_abacus', module: 'universal', cost: 11, apply: (s) => { s.refundNormal = 0.25; s.refundElite = 0.25; } }),
+
+  // ---- 飞刃模组专属 ----
+  mkUpgrade({
+    id: 'bl_pierce', module: 'blade', cost: 13,
+    apply: (s) => { s.bladePierceMode = 'stack'; s.bladePierce = 1; s.bladePierceFalloff = 0.75; },
+  }),
+  mkUpgrade({
+    id: 'bl_return', module: 'blade', cost: 14,
+    apply: (s) => { s.bladeReturn = true; s.bladeReturnSpeed = MODULES.blade.speed; },
+  }),
+  mkUpgrade({
+    id: 'bl_mark', module: 'blade', cost: 15,
+    apply: (s) => { s.markMax = 3; s.markDuration = 3.0; s.markDamagePerStack = 0.20; },
+  }),
 ];
 
 const UPGRADE_BY_ID = new Map<string, Upgrade>(UPGRADES.map((u) => [u.id, u]));
@@ -137,6 +151,36 @@ export const EVOLUTIONS: readonly Evolution[] = [
   mkEvolution({
     id: 'un_abacus', branch: 'b', module: 'universal', cost: 16,
     apply: (s) => { s.refundElite = 0.75; s.refundEliteClear = 1.0; },
+  }),
+
+  // ---- 贯刃 → 无阻 / 贯心
+  mkEvolution({
+    id: 'bl_pierce', branch: 'a', module: 'blade', cost: 19,
+    apply: (s) => { s.bladePierce = 3; s.bladePierceFalloff = 0.85; },
+  }),
+  mkEvolution({
+    id: 'bl_pierce', branch: 'b', module: 'blade', cost: 19,
+    apply: (s) => { s.bladePierceMode = 'finale'; s.bladePierce = 1; s.bladePierceBonus = 1.8; },
+  }),
+
+  // ---- 回旋 → 归刃 / 环身
+  mkEvolution({
+    id: 'bl_return', branch: 'a', module: 'blade', cost: 20,
+    apply: (s) => { s.bladeReturnSpeed = 820; s.bladeReturnDamageMult = 1.35; },
+  }),
+  mkEvolution({
+    id: 'bl_return', branch: 'b', module: 'blade', cost: 20,
+    apply: (s) => { s.bladeOrbit = true; s.bladeOrbitDuration = 0.8; },
+  }),
+
+  // ---- 刃印 → 猎印 / 爆印
+  mkEvolution({
+    id: 'bl_mark', branch: 'a', module: 'blade', cost: 21,
+    apply: (s) => { s.markMax = 5; s.markMeleeBonusPerStack = 0.05; },
+  }),
+  mkEvolution({
+    id: 'bl_mark', branch: 'b', module: 'blade', cost: 21,
+    apply: (s) => { s.markDetonate = true; s.markDetonateDamageMult = 0.9; s.markDetonateSplashMult = 0.45; },
   }),
 ];
 

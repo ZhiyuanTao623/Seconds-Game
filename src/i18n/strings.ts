@@ -13,9 +13,12 @@ export interface ModuleText { name: string; desc: string }
  * `mkUpgrade({ id: ... })` 的 id 都必须落在这个联合里，拼错字会在编译期报错，
  * 而不是运行时显示一个 undefined 的名字。
  *
- * 目前只有 4 个通用强化；飞刃/掠影/蓄势各 3 个专属强化会在各自的里程碑加入。
+ * 目前有 4 个通用强化 + 飞刃模组的 3 个专属强化；掠影/蓄势各 3 个专属强化
+ * 会在各自的里程碑加入。
  */
-export type UpgradeId = 'un_gale' | 'un_blade' | 'un_tough' | 'un_abacus';
+export type UpgradeId =
+  | 'un_gale' | 'un_blade' | 'un_tough' | 'un_abacus'
+  | 'bl_pierce' | 'bl_return' | 'bl_mark';
 
 /**
  * 全部界面文案的形状。
@@ -217,6 +220,18 @@ const zh: Strings = {
       a: { name: '薄利多销', desc: '所有非 Boss 击杀统一返还 0.45s（重甲/医疗兵不再额外加成）。' },
       b: { name: '高额结算', desc: '普通敌人仍返还 0.25s，重甲/医疗兵返还 0.75s，精英房清空额外返还 1.0s。' },
     },
+    bl_pierce: {
+      a: { name: '无阻', desc: '最多穿透 3 个敌人，每次穿透后伤害仅降低 15%。适合敌人密集的房间。' },
+      b: { name: '贯心', desc: '穿透第一个敌人后，对第二个敌人造成 +80% 伤害，命中后立即消失。' },
+    },
+    bl_return: {
+      a: { name: '归刃', desc: '飞刃返回速度提升至 820px/s，返回伤害 +35%。' },
+      b: { name: '环身', desc: '飞刃返回玩家后环绕 0.8 秒，环绕期间触碰敌人各造成一次飞刃伤害。' },
+    },
+    bl_mark: {
+      a: { name: '猎印', desc: '刃印最多提升至 5 层，每层使普通挥砍伤害 +5%，消耗时仍造成额外伤害。' },
+      b: { name: '爆印', desc: '刃印叠满 3 层时自动引爆：对目标造成 90% 伤害，周围 90px 内敌人溅射 45% 伤害。' },
+    },
   },
 
   shop: {
@@ -259,6 +274,9 @@ const zh: Strings = {
     un_blade: { name: '利刃', desc: '伤害 +22%，受击时间惩罚 +15%。' },
     un_tough: { name: '韧体', desc: '受击时间惩罚 -22%，伤害 -6%。' },
     un_abacus: { name: '精算', desc: '每击杀一个非 Boss 敌人返还 0.25s。' },
+    bl_pierce: { name: '贯刃', desc: '飞刃可以穿透 1 个敌人，穿透后伤害降至 75%。' },
+    bl_return: { name: '回旋', desc: '飞刃达到最大距离或撞墙时飞回玩家，去程和回程各能命中一次。' },
+    bl_mark: { name: '刃印', desc: '飞刃命中敌人施加刃印（最多 3 层，持续 3.0s），普通挥砍消耗时每层多打 20% 伤害。' },
   },
 };
 
@@ -356,6 +374,18 @@ const en: Strings = {
       a: { name: 'Volume Discount', desc: 'Every non-Boss kill refunds a flat 0.45s (brutes/medics lose their extra bonus).' },
       b: { name: 'Premium Settlement', desc: 'Regular kills still refund 0.25s; brutes/medics refund 0.75s; clearing an Elite room refunds an extra 1.0s.' },
     },
+    bl_pierce: {
+      a: { name: 'Unhindered', desc: 'Pierces up to 3 enemies; damage drops only 15% per pierce. Great in crowded rooms.' },
+      b: { name: 'Heartpierce', desc: 'After piercing the first enemy, deals +80% damage to a second target, then disappears.' },
+    },
+    bl_return: {
+      a: { name: 'Homing Edge', desc: 'Return speed increases to 820px/s; return-hit damage +35%.' },
+      b: { name: 'Ring Guard', desc: 'After returning, the blade orbits you for 0.8s, dealing one hit to each enemy it touches.' },
+    },
+    bl_mark: {
+      a: { name: "Hunter's Mark", desc: 'Marks cap at 5 stacks; each stack adds +5% melee damage against the target, and consuming still deals bonus damage.' },
+      b: { name: 'Detonating Mark', desc: 'At 3 stacks the mark auto-detonates: 90% damage to the target, 45% splash to enemies within 90px.' },
+    },
   },
 
   shop: {
@@ -398,6 +428,9 @@ const en: Strings = {
     un_blade: { name: 'Blade', desc: 'Damage +22%, hit penalty +15%.' },
     un_tough: { name: 'Grit', desc: 'Hit penalty -22%, damage -6%.' },
     un_abacus: { name: 'Abacus', desc: 'Refund 0.25s for every non-Boss kill.' },
+    bl_pierce: { name: 'Pierce', desc: 'Your blade pierces 1 enemy; damage after piercing drops to 75%.' },
+    bl_return: { name: 'Return', desc: 'The blade flies back after reaching max range or hitting a wall; can hit once on the way out and once on the way back.' },
+    bl_mark: { name: 'Mark', desc: 'Blade hits apply a mark (up to 3 stacks, 3.0s). A normal slash consumes all stacks for +20% damage per stack.' },
   },
 };
 

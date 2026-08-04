@@ -46,5 +46,7 @@ export function baseEnemy(
     comboLeft: 0,
     phaseTwo: false,
     vulnerable: 0,
+    markStacks: 0,
+    markT: 0,
   };
 }

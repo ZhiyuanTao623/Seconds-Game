@@ -1,4 +1,4 @@
-import { BOSS, FEEL, HIT, PLAYER } from './config';
+import { BOSS, FEEL, HIT, MODULES, PLAYER } from './config';
 import { Arena } from './arena';
 import { Fx } from './fx';
 import { Timeline } from '../core/timeline';
@@ -92,15 +92,32 @@ export class World {
     p.vy += Math.sin(away) * PLAYER.selfKnockback;
   }
 
+  /**
+   * 刃印只在这里结算：MELEE 命中消耗已有层数（猎印额外乘一个易伤倍率），
+   * BLADE 命中叠一层。爆印的自动引爆用 EXPLOSION 标签递归调用自己 ——
+   * EXPLOSION 既不会消耗也不会叠加刃印，天然满足「爆炸不能再触发爆炸」。
+   */
   damageEnemy(e: Enemy, damage: number, tag: DamageTag = 'MELEE'): void {
+    const s = this.stats;
     let d = damage;
     if (e.kind === 'boss' && e.vulnerable > 0) d *= BOSS.phaseTwo.weakPointDamageMult;
 
-    e.hp -= d;
+    let markBonus = 0;
+    if (tag === 'MELEE' && s.markMax > 0 && !s.markDetonate && e.markStacks > 0) {
+      d *= 1 + s.markMeleeBonusPerStack * e.markStacks;
+      markBonus = s.dmg * s.markDamagePerStack * e.markStacks;
+      e.markStacks = 0;
+      e.markT = 0;
+    }
+
+    e.hp -= d + markBonus;
     e.flash = 0.12;
     e.lastHitTag = tag;
 
-    if (e.hp > 0 || e.dead) return;
+    if (e.hp > 0 || e.dead) {
+      if (tag === 'BLADE' && s.markMax > 0 && !e.dead) this.applyMark(e);
+      return;
+    }
 
     e.dead = true;
     this.fx.ring(e.x, e.y, e.r, e.r + 46, '#fff', 0.3);
@@ -110,6 +127,26 @@ export class World {
         this.ledger.addRefund(refund);
         this.fx.float(e.x, e.y - 20, `-${formatSeconds(refund)}s`, '#8fe388', 20);
       }
+    }
+  }
+
+  private applyMark(e: Enemy): void {
+    const s = this.stats;
+    e.markStacks = Math.min(s.markMax, e.markStacks + 1);
+    e.markT = s.markDuration;
+    if (s.markDetonate && e.markStacks >= s.markMax) this.detonateMarks(e);
+  }
+
+  private detonateMarks(e: Enemy): void {
+    const s = this.stats;
+    e.markStacks = 0;
+    e.markT = 0;
+    this.fx.ring(e.x, e.y, 8, 96, '#ffb347', 0.3);
+    this.damageEnemy(e, s.dmg * s.markDetonateDamageMult, 'EXPLOSION');
+    for (const other of this.enemies) {
+      if (other === e || other.dead) continue;
+      if (dist(e, other) > MODULES.blade.markSplashRadius) continue;
+      this.damageEnemy(other, s.dmg * s.markDetonateSplashMult, 'EXPLOSION');
     }
   }
 
@@ -163,41 +200,141 @@ export class World {
   }
 
   private updateBullets(dt: number): void {
+    for (const b of this.bullets) {
+      if (b.hostile) this.stepHostileBullet(b, dt);
+      else this.stepPlayerBlade(b, dt);
+    }
+    this.bullets = this.bullets.filter((b) => !b.dead);
+  }
+
+  private stepHostileBullet(b: Bullet, dt: number): void {
+    const p = this.player;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.life -= dt;
+
+    // 敌方弹不可被清除，只能靠走位和冲刺躲
+    if (b.life <= 0 || !this.arena.contains(b) || this.arena.hitsWall(b)) {
+      b.dead = true;
+      return;
+    }
+    if (dist(p, b) < p.r + b.r) {
+      this.hitPlayer(b.pen, b);
+      b.dead = true;
+    }
+  }
+
+  /**
+   * 玩家的飞刃。没有回旋（`phase` 为 undefined）时行为和原版一样：
+   * 飞到撞墙/超时/命中一个敌人（贯刃可以多穿几个）就消失。
+   * 有回旋时，撞墙/超时/到达最大距离改成「转身回程」而不是消失；
+   * 回到玩家身边后要么直接消失，要么（环身）环绕玩家一段时间。
+   */
+  private stepPlayerBlade(b: Bullet, dt: number): void {
     const p = this.player;
 
-    for (const b of this.bullets) {
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      b.life -= dt;
-
-      if (b.life <= 0 || !this.arena.contains(b) || this.arena.hitsWall(b)) {
-        b.dead = true;
-        continue;
-      }
-
-      if (b.hostile) {
-        // 敌方弹不可被清除，只能靠走位和冲刺躲
-        if (dist(p, b) < p.r + b.r) {
-          this.hitPlayer(b.pen, b);
-          b.dead = true;
-        }
-      } else {
-        // 玩家的刃弹：命中一个敌人即消失
-        for (const e of this.enemies) {
-          if (e.dead || dist(e, b) >= e.r + b.r) continue;
-          this.damageEnemy(e, b.damage, 'BLADE');
-          this.fx.ring(b.x, b.y, 2, 18, '#fff', 0.18);
-          b.dead = true;
-          break;
-        }
-      }
+    if (b.phase === 'orbit') {
+      b.orbitT = (b.orbitT ?? 0) - dt;
+      if (b.orbitT <= 0) { b.dead = true; return; }
+      b.orbitAngle = (b.orbitAngle ?? 0) + MODULES.blade.orbitSpeed * dt;
+      b.x = p.x + Math.cos(b.orbitAngle) * MODULES.blade.orbitRadius;
+      b.y = p.y + Math.sin(b.orbitAngle) * MODULES.blade.orbitRadius;
+      this.hitEnemiesWithBlade(b);
+      return;
     }
 
-    this.bullets = this.bullets.filter((b) => !b.dead);
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.life -= dt;
+
+    const outOfBounds = !this.arena.contains(b) || this.arena.hitsWall(b);
+
+    if (b.phase === 'out') {
+      const traveled = Math.hypot(b.x - (b.originX ?? b.x), b.y - (b.originY ?? b.y));
+      if ((b.maxRange !== undefined && traveled >= b.maxRange) || outOfBounds || b.life <= 0) {
+        this.turnBladeBack(b);
+        return;
+      }
+    } else if (b.phase === 'back') {
+      if (dist(p, b) < p.r + b.r || outOfBounds || b.life <= 0) {
+        this.finishBladeReturn(b);
+        return;
+      }
+    } else if (outOfBounds || b.life <= 0) {
+      b.dead = true;
+      return;
+    }
+
+    this.hitEnemiesWithBlade(b);
+  }
+
+  private turnBladeBack(b: Bullet): void {
+    const p = this.player;
+    const speed = this.stats.bladeReturnSpeed || MODULES.blade.speed;
+    const angle = Math.atan2(p.y - b.y, p.x - b.x);
+    b.phase = 'back';
+    b.vx = Math.cos(angle) * speed;
+    b.vy = Math.sin(angle) * speed;
+    b.life = MODULES.blade.life;
+    b.legHits = 0;
+    b.hitEnemies?.clear();
+  }
+
+  private finishBladeReturn(b: Bullet): void {
+    if (this.stats.bladeOrbit) {
+      b.phase = 'orbit';
+      b.orbitT = this.stats.bladeOrbitDuration;
+      b.orbitAngle = Math.atan2(b.y - this.player.y, b.x - this.player.x);
+      b.legHits = 0;
+      b.hitEnemies?.clear();
+    } else {
+      b.dead = true;
+    }
+  }
+
+  /** 命中判定 + 贯刃穿透/终结逻辑。orbit 阶段单独处理，不受穿透上限约束。 */
+  private hitEnemiesWithBlade(b: Bullet): void {
+    if (b.phase === 'orbit') {
+      for (const e of this.enemies) {
+        if (e.dead || b.hitEnemies?.has(e)) continue;
+        if (dist(e, b) >= e.r + b.r) continue;
+        b.hitEnemies?.add(e);
+        this.damageEnemy(e, b.damage, 'BLADE');
+        this.fx.ring(b.x, b.y, 2, 18, '#fff', 0.18);
+      }
+      return;
+    }
+
+    // 没有贯刃：本段最多命中 1 个敌人；stack 模式下每多穿透 1 个，上限 +1
+    const cap = b.pierceMode === 'finale' ? 2 : 1 + (b.pierceLeft ?? 0);
+    if ((b.legHits ?? 0) >= cap) return;
+
+    for (const e of this.enemies) {
+      if (e.dead || b.hitEnemies?.has(e)) continue;
+      if (dist(e, b) >= e.r + b.r) continue;
+
+      b.hitEnemies?.add(e);
+      const hitIndex = (b.legHits ?? 0) + 1;
+      b.legHits = hitIndex;
+
+      const finaleSecond = b.pierceMode === 'finale' && hitIndex === 2;
+      const returnBonus = b.phase === 'back' ? this.stats.bladeReturnDamageMult : 1;
+      const damage = (finaleSecond ? b.damage * (b.pierceBonus ?? 1) : b.damage) * returnBonus;
+
+      this.damageEnemy(e, damage, 'BLADE');
+      this.fx.ring(b.x, b.y, 2, 18, '#fff', 0.18);
+
+      // 每次穿透后都为下一次命中打折，第一下永远是全额伤害
+      if (b.pierceMode === 'stack') b.damage *= b.pierceFalloff ?? 1;
+
+      if (finaleSecond) { b.dead = true; return; }
+      if (b.phase === undefined && hitIndex >= cap) { b.dead = true; return; }
+      if (hitIndex >= cap) return;
+    }
   }
 }
 
-/** 所有敌人共有的每帧处理：击退位移与白闪衰减。 */
+/** 所有敌人共有的每帧处理：击退位移、白闪衰减、刃印过期。 */
 function updateEnemyCommon(e: Enemy, dt: number): void {
   e.flash -= dt;
   e.x += e.knockback.x * dt;
@@ -205,4 +342,9 @@ function updateEnemyCommon(e: Enemy, dt: number): void {
   const f = friction(PLAYER.enemyFriction, dt);
   e.knockback.x *= f;
   e.knockback.y *= f;
+
+  if (e.markStacks > 0) {
+    e.markT -= dt;
+    if (e.markT <= 0) e.markStacks = 0;
+  }
 }

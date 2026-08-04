@@ -53,6 +53,11 @@ export interface Enemy {
   vulnerable: number;
   /** 最近一次受到伤害的来源标签。刃印/震荡等机制靠它判断触发条件。 */
   lastHitTag?: DamageTag;
+
+  /** 刃印层数（飞刃模组「刃印」专属，其余情况恒为 0）。 */
+  markStacks: number;
+  /** 刃印剩余持续时间；归零时 markStacks 清空。 */
+  markT: number;
 }
 
 export interface Bullet {
@@ -65,8 +70,30 @@ export interface Bullet {
   dead: boolean;
   /** true = 敌方弹（会收玩家的钱），false = 玩家的刃弹 */
   hostile: boolean;
-  /** 玩家刃弹的伤害 */
+  /** 玩家刃弹的伤害；贯刃穿透衰减会直接改这个字段。 */
   damage: number;
-  /** 玩家刃弹已经打过的敌人，防止一颗弹连续结算 */
-  spent?: boolean;
+
+  // ---- 飞刃模组专属，只有玩家刃弹（hostile === false）可能带 ----
+  /** 贯刃模式：'stack' = 无阻式层层衰减，'finale' = 贯心式二段终结。未定义 = 没有贯刃。 */
+  pierceMode?: 'stack' | 'finale';
+  /** stack 模式下，本段还能再穿透几个敌人（不含本次命中）。 */
+  pierceLeft?: number;
+  /** stack 模式下每次穿透后的伤害衰减倍率。 */
+  pierceFalloff?: number;
+  /** finale 模式下第二个目标的伤害加成倍率。 */
+  pierceBonus?: number;
+  /** 已经命中过的敌人；每进入新一段（去程/回程/环绕）就清空一次。 */
+  hitEnemies?: Set<Enemy>;
+  /** 当前这一段（去程/回程/环绕）已经命中的次数，用于套用穿透上限。 */
+  legHits?: number;
+  /** 回旋阶段：out=去程，back=回程，orbit=环身进化的环绕。未定义 = 没有回旋。 */
+  phase?: 'out' | 'back' | 'orbit';
+  /** 触发回程所需的飞行距离。 */
+  maxRange?: number;
+  originX?: number;
+  originY?: number;
+  /** orbit 阶段剩余时间。 */
+  orbitT?: number;
+  /** orbit 阶段当前角度，环绕玩家转动用。 */
+  orbitAngle?: number;
 }

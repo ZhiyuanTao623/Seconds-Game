@@ -3,7 +3,7 @@ import { FIXED_STEP } from '../src/game/config';
 import { Ledger } from '../src/game/ledger';
 import { Run } from '../src/game/run';
 import { buildRoom } from '../src/game/room';
-import { upgradeById } from '../src/game/upgrades';
+import { evolutionsFor, upgradeById } from '../src/game/upgrades';
 import { assertChargeMatchesLabel, recordCharges } from './helpers';
 import type { InputSource } from '../src/core/input';
 import type { MapNode } from '../src/game/map';
@@ -122,6 +122,25 @@ describe('真实循环 fuzz：每一笔扣款都等于当时的价签', () => {
     const world = buildRoom(run, bossNode!);
     const charges = recordCharges(world);
     simulate(world, 2400, testRng(5));
+
+    for (const c of charges) assertChargeMatchesLabel(c);
+    expect(charges.length).toBeGreaterThan(0);
+  });
+
+  it('拿满飞刃三专属强化（含穿透/回旋/刃印）也不会让报价和实扣走岔', () => {
+    const run = new Run(2468, 'blade');
+    for (const id of ['bl_pierce', 'bl_return', 'bl_mark', 'un_gale']) {
+      const u = upgradeById(id);
+      if (u) run.takeUpgrade(u);
+    }
+    run.takeEvolution(evolutionsFor('bl_return')[1]!); // 环身：验证 orbit 阶段也不影响报价
+
+    const bossNode = run.map.nodes.get(run.map.bossId);
+    expect(bossNode).toBeDefined();
+
+    const world = buildRoom(run, bossNode!);
+    const charges = recordCharges(world);
+    simulate(world, 2400, testRng(9));
 
     for (const c of charges) assertChargeMatchesLabel(c);
     expect(charges.length).toBeGreaterThan(0);

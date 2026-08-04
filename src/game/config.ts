@@ -74,6 +74,40 @@ export interface Stats {
   chargeRecoverMult: number;
   /** 蓄力过程中的移速倍率。 */
   chargeMoveSpeedMult: number;
+
+  // ---- 飞刃：贯刃 ----
+  /** 'off' = 未持有贯刃；'stack' = 无阻式层层衰减；'finale' = 贯心式二段终结。 */
+  bladePierceMode: 'off' | 'stack' | 'finale';
+  /** stack 模式下还能再穿透几个敌人（不含本次命中）。 */
+  bladePierce: number;
+  /** stack 模式下每次穿透后的伤害衰减倍率。 */
+  bladePierceFalloff: number;
+  /** finale 模式下第二个目标的伤害加成倍率。 */
+  bladePierceBonus: number;
+
+  // ---- 飞刃：回旋 ----
+  /** 是否持有回旋（达到最大距离/撞墙后飞回玩家）。 */
+  bladeReturn: boolean;
+  /** 回程速度（px/s）。 */
+  bladeReturnSpeed: number;
+  /** 回程命中的伤害倍率。 */
+  bladeReturnDamageMult: number;
+  /** 环身进化：回到玩家身边后环绕一段时间。 */
+  bladeOrbit: boolean;
+  bladeOrbitDuration: number;
+
+  // ---- 飞刃：刃印 ----
+  /** 刃印最大层数。0 = 未持有刃印。 */
+  markMax: number;
+  markDuration: number;
+  /** 普通挥砍消耗刃印时，每层额外造成的伤害 = dmg × 这个数。 */
+  markDamagePerStack: number;
+  /** 猎印进化：普通挥砍对已刃印敌人，每层额外的伤害倍率加成。 */
+  markMeleeBonusPerStack: number;
+  /** 爆印进化：刃印叠满时自动引爆，不再靠挥砍消耗。 */
+  markDetonate: boolean;
+  markDetonateDamageMult: number;
+  markDetonateSplashMult: number;
 }
 
 export const BASE_STATS: Readonly<Stats> = {
@@ -99,6 +133,25 @@ export const BASE_STATS: Readonly<Stats> = {
   chargeRangeMult: 1,
   chargeRecoverMult: 1,
   chargeMoveSpeedMult: 1,
+
+  bladePierceMode: 'off',
+  bladePierce: 0,
+  bladePierceFalloff: 1,
+  bladePierceBonus: 1,
+
+  bladeReturn: false,
+  bladeReturnSpeed: 0,
+  bladeReturnDamageMult: 1,
+  bladeOrbit: false,
+  bladeOrbitDuration: 0,
+
+  markMax: 0,
+  markDuration: 0,
+  markDamagePerStack: 0,
+  markMeleeBonusPerStack: 0,
+  markDetonate: false,
+  markDetonateDamageMult: 0,
+  markDetonateSplashMult: 0,
 };
 
 // ---------------------------------------------------------------- 受击经济学
@@ -273,6 +326,11 @@ export const MODULES = {
     speed: 620,
     radius: 5,
     life: 0.9,
+    /** 爆印：引爆范围内的溅射半径。 */
+    markSplashRadius: 90,
+    /** 环身：环绕玩家的半径与角速度（rad/s）。 */
+    orbitRadius: 40,
+    orbitSpeed: 8,
   },
   dash: {
     damageMult: 0.85,
