@@ -29,7 +29,7 @@ export class Hud {
   private lblSpend = el('lblSpend');
   private lblRef = el('lblRef');
 
-  private lastUpgradeCount = -1;
+  private lastUpgradeVersion = -1;
 
   constructor() {
     this.applyStaticLabels();
@@ -39,7 +39,7 @@ export class Hud {
       // 强化名字是取值时才查词典的 getter（见 game/upgrades.ts），
       // 但 upglist 的 innerHTML 是按数量缓存的 —— 数量没变就不会重画，
       // 必须手动作废一次缓存，语言切换才能立刻体现在已持有的强化上。
-      this.lastUpgradeCount = -1;
+      this.lastUpgradeVersion = -1;
     });
   }
 
@@ -72,14 +72,14 @@ export class Hud {
     this.nodeInfo.textContent = run.floorLabel;
     this.seedInfo.textContent = t().hud.seed(run.seed);
 
-    if (run.owned.length !== this.lastUpgradeCount) {
-      this.lastUpgradeCount = run.owned.length;
-      this.upgrades.innerHTML = run.owned.map((u) => `<span>${u.name}</span>`).join('');
+    if (run.upgradeVersion !== this.lastUpgradeVersion) {
+      this.lastUpgradeVersion = run.upgradeVersion;
+      this.upgrades.innerHTML = run.owned.map((u) => `<span>${run.upgradeLabel(u)}</span>`).join('');
     }
   }
 
   reset(): void {
-    this.lastUpgradeCount = -1;
+    this.lastUpgradeVersion = -1;
     this.upgrades.innerHTML = '';
     this.tax.textContent = '';
     this.nodeInfo.textContent = '';

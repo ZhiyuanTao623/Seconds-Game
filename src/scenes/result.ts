@@ -26,7 +26,7 @@ export class ResultScene implements Scene {
         <em>${s.spend}</em><span class="cSpend">+${formatSeconds(ledger.spend)}s</span><br>
         <em>${s.ref}</em><span class="cRef">−${formatSeconds(ledger.refund)}s</span><br>
         <em>${s.seed}</em><span id="seedout" style="cursor:pointer;text-decoration:underline dotted">${run.seed}</span><br>
-        <em>${s.owned}</em>${run.owned.map((u) => u.name).join(s.listSep) || s.none}
+        <em>${s.owned}</em>${run.owned.map((u) => run.upgradeLabel(u)).join(s.listSep) || s.none}
       </div>
       <br>
       <div class="btn" id="again">${s.retry}</div>

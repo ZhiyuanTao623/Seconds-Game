@@ -1,12 +1,12 @@
 import { COSTS, GRADES } from './config';
 import { Ledger } from './ledger';
 import { generateMap } from './map';
-import { computeStats } from './upgrades';
+import { computeStats, drawEvolutions } from './upgrades';
 import { t } from '../i18n/i18n';
 import { RngStream } from '../core/rng';
 import type { MapNode, RunMap } from './map';
 import type { Stats } from './config';
-import type { Upgrade } from './upgrades';
+import type { Evolution, EvolutionKey, Upgrade } from './upgrades';
 
 /**
  * 一局游戏的全部状态。
@@ -24,6 +24,12 @@ export class Run {
   readonly ledger = new Ledger();
 
   owned: Upgrade[] = [];
+  /** 已在精英奖励里展示过的分支；展示即淘汰，即使玩家没选择。 */
+  readonly seenEvolutions = new Set<EvolutionKey>();
+  /** 已实际装备的进化分支。 */
+  readonly evolved = new Set<EvolutionKey>();
+  /** HUD 用的版本号；进化不会改变 owned.length。 */
+  upgradeVersion = 0;
   stats: Stats;
 
   /** 当前所在节点。null = 还没踏上第 1 层。 */
@@ -59,10 +65,31 @@ export class Run {
 
   takeUpgrade(u: Upgrade): void {
     this.owned.push(u);
-    this.stats = computeStats(this.owned);
+    this.upgradeVersion += 1;
+    this.stats = computeStats(this.owned, this.evolved);
   }
 
   get ownedIds(): Set<string> { return new Set(this.owned.map((u) => u.id)); }
+
+  /** 生成并立即淘汰已展示分支，确保同一局里不会二次出现。 */
+  drawEliteEvolutions(count: number): Evolution[] {
+    const options = drawEvolutions(this.rngFor(this.current?.id ?? 'elite', 'elite'), this.owned, this.seenEvolutions, count);
+    for (const option of options) this.seenEvolutions.add(option.key);
+    return options;
+  }
+
+  takeEvolution(evolution: Evolution): void {
+    this.evolved.add(evolution.key);
+    this.upgradeVersion += 1;
+    this.stats = computeStats(this.owned, this.evolved);
+  }
+
+  upgradeLabel(u: Upgrade): string {
+    const tags: string[] = [];
+    if (this.evolved.has(`${u.id}:numeric`)) tags.push(t().evolution.numeric);
+    if (this.evolved.has(`${u.id}:costRemoval`)) tags.push(t().evolution.costRemoval);
+    return tags.length > 0 ? `${u.name} · ${tags.join('/')}` : u.name;
+  }
 
   // ---------------------------------------------------------------- 定价
 

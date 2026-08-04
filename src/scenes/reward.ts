@@ -4,7 +4,7 @@ import { t } from '../i18n/i18n';
 import type { CardSpec } from '../ui/overlay';
 import type { Scene, SceneContext } from './scene';
 import type { Renderer } from '../render/renderer';
-import type { Upgrade } from '../game/upgrades';
+import type { Evolution, Upgrade } from '../game/upgrades';
 import type { MapNode } from '../game/map';
 
 /**
@@ -16,29 +16,30 @@ export class RewardScene implements Scene {
   readonly pausable = true;
 
   private options: Upgrade[];
+  private evolutions: Evolution[] = [];
 
   constructor(private ctx: SceneContext, private node: MapNode, count: number) {
-    this.options = drawUpgrades(
-      ctx.run.rngFor(node.id, 'reward'),
-      ctx.run.ownedIds,
-      count,
-    );
+    this.options = node.kind === 'elite'
+      ? []
+      : drawUpgrades(ctx.run.rngFor(node.id, 'reward'), ctx.run.ownedIds, count);
+    if (node.kind === 'elite') this.evolutions = ctx.run.drawEliteEvolutions(count);
   }
 
   enter(): void {
-    if (this.options.length === 0) { this.leave(); return; }
+    if (this.options.length === 0 && this.evolutions.length === 0) { this.leave(); return; }
 
     const s = t().reward;
-    const cards: CardSpec[] = this.options.map((u) => ({
-      kind: s.kind,
+    const cards: CardSpec[] = (this.evolutions.length > 0 ? this.evolutions : this.options).map((u) => ({
+      kind: this.evolutions.length > 0 ? s.eliteKind : s.kind,
       name: u.name,
       desc: u.desc,
       price: { cls: 'free', text: s.free },
     }));
 
+    const elite = this.evolutions.length > 0;
     this.ctx.overlay.show(`
-      <div class="ov-title">${s.cleared}</div>
-      <div class="ov-sub">${s.body}<b style="color:#ff8a5c">${s.clockNote}</b></div>
+      <div class="ov-title">${elite ? s.eliteCleared : s.cleared}</div>
+      <div class="ov-sub">${elite ? s.eliteBody : s.body}<b style="color:#ff8a5c">${s.clockNote}</b></div>
       ${cardsHtml(cards)}
     `);
     this.ctx.overlay.onCards((i) => this.pick(i));
@@ -53,6 +54,13 @@ export class RewardScene implements Scene {
   exit(): void { this.ctx.overlay.hide(); }
 
   private pick(index: number): void {
+    const evolution = this.evolutions[index];
+    if (evolution) {
+      this.ctx.run.takeEvolution(evolution);
+      this.ctx.overlay.toast(t().reward.evolved(evolution.name));
+      this.leave();
+      return;
+    }
     const upgrade = this.options[index];
     if (!upgrade) return;
     this.ctx.run.takeUpgrade(upgrade);

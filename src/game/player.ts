@@ -206,7 +206,7 @@ function slash(world: World, charged: boolean): void {
 
   const range = charged ? s.range * CHARGED_SLASH.rangeMult : s.range;
   const arc = charged ? TAU : s.arc;
-  const damage = charged ? s.dmg * CHARGED_SLASH.damageMult : s.dmg;
+  const damage = charged ? s.dmg * s.chargedDamageMult : s.dmg;
 
   p.atkCd = charged ? s.atkCd * CHARGED_SLASH.recoverMult : s.atkCd;
 
@@ -243,7 +243,7 @@ function slash(world: World, charged: boolean): void {
       life: THROW_BLADE.life,
       dead: false,
       hostile: false,
-      damage: s.dmg * THROW_BLADE.damageMult,
+      damage: s.dmg * s.projectileDamageMult,
     });
   }
 }

@@ -4,6 +4,7 @@ export type Locale = 'zh' | 'en';
 
 export interface RoomText { label: string; hint: string }
 export interface UpgradeText { name: string; desc: string }
+export interface EvolutionText { desc: string }
 
 /**
  * 13 个强化的 id 联合类型。这里是唯一真相源 —— upgrades.ts 里每个
@@ -58,12 +59,19 @@ export interface Strings {
 
   reward: {
     kind: string;
+    eliteKind: string;
     cleared: string;
+    eliteCleared: string;
     body: string;
+    eliteBody: string;
     clockNote: string;
     free: string;
     got: (name: string) => string;
+    evolved: (name: string) => string;
   };
+
+  evolution: { numeric: string; costRemoval: string };
+  evolutions: Record<UpgradeId, { numeric: EvolutionText; costRemoval?: EvolutionText }>;
 
   shop: {
     title: string;
@@ -151,6 +159,27 @@ const zh: Strings = {
     clockNote: '时钟还在走。',
     free: '免费 · 已用战斗时间支付',
     got: (name) => `获得 ${name}`,
+    eliteKind: '精英进化',
+    eliteCleared: '精英已击破',
+    eliteBody: '展示过的分支将永久离开本局奖励池 —— 选一个强化你的构筑。',
+    evolved: (name) => `进化 ${name}`,
+  },
+
+  evolution: { numeric: '锋锐', costRemoval: '卸重' },
+  evolutions: {
+    blade: { numeric: { desc: '总伤害提升至 200%。' }, costRemoval: { desc: '移除「受击时间惩罚 +40%」。' } },
+    gale: { numeric: { desc: '总移速提升至 +30%，冲刺冷却缩短至 -48%。' } },
+    tough: { numeric: { desc: '受击时间惩罚降低至 -50%。' }, costRemoval: { desc: '移除「伤害 -15%」。' } },
+    reach: { numeric: { desc: '总攻击范围提升至 +80%，挥砍角度进一步增大。' } },
+    rapid: { numeric: { desc: '攻击间隔缩短至原本的 45%。' }, costRemoval: { desc: '移除「单次伤害 -10%」。' } },
+    exec: { numeric: { desc: '处决阈值提升至 45%（仍不作用于 Boss）。' } },
+    greed: { numeric: { desc: '后续秒数消费降低至原价的 45%（最低仍为 3s）。' } },
+    stasis: { numeric: { desc: '冲刺时的全场减速持续提升至 0.85 秒。' } },
+    riposte: { numeric: { desc: '反击窗口内伤害提升至 +140%。' } },
+    abacus: { numeric: { desc: '每击杀一名非 Boss 敌人返还 1.0 秒。' } },
+    throw: { numeric: { desc: '飞刃伤害提升至本次挥砍的 85%。' } },
+    phantom: { numeric: { desc: '冲刺穿敌伤害提升至 180%。' } },
+    charge: { numeric: { desc: '满蓄全向斩伤害提升至 340%。' } },
   },
 
   shop: {
@@ -261,6 +290,27 @@ const en: Strings = {
     clockNote: 'The clock is still running.',
     free: 'Free · paid with combat time',
     got: (name) => `Got ${name}`,
+    eliteKind: 'Elite Evolution',
+    eliteCleared: 'Elite Defeated',
+    eliteBody: 'Revealed branches leave this run forever — choose one to deepen your build.',
+    evolved: (name) => `Evolved ${name}`,
+  },
+
+  evolution: { numeric: 'Sharpened', costRemoval: 'Unburdened' },
+  evolutions: {
+    blade: { numeric: { desc: 'Total damage becomes 200%.' }, costRemoval: { desc: 'Remove the +40% hit-penalty drawback.' } },
+    gale: { numeric: { desc: 'Total move speed becomes +30%; dash cooldown becomes -48%.' } },
+    tough: { numeric: { desc: 'Hit penalty becomes -50%.' }, costRemoval: { desc: 'Remove the -15% damage drawback.' } },
+    reach: { numeric: { desc: 'Total attack range becomes +80%, with a wider slash arc.' } },
+    rapid: { numeric: { desc: 'Attack interval becomes 45% of base.' }, costRemoval: { desc: 'Remove the -10% damage-per-hit drawback.' } },
+    exec: { numeric: { desc: 'Execution threshold becomes 45% (still excludes the Boss).' } },
+    greed: { numeric: { desc: 'Future second-spending becomes 45% of base price (minimum remains 3s).' } },
+    stasis: { numeric: { desc: 'Dash slow lasts 0.85 seconds.' } },
+    riposte: { numeric: { desc: 'Damage in the riposte window becomes +140%.' } },
+    abacus: { numeric: { desc: 'Refund 1.0 second per non-Boss kill.' } },
+    throw: { numeric: { desc: 'Thrown blades deal 85% of the slash damage.' } },
+    phantom: { numeric: { desc: 'Dash-through damage becomes 180%.' } },
+    charge: { numeric: { desc: 'A full charged slash deals 340% damage.' } },
   },
 
   shop: {

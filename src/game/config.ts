@@ -49,10 +49,14 @@ export interface Stats {
   counterDmg: number;
   /** 掷刃：挥砍时附带发射刃弹 */
   projectile: boolean;
+  /** 掷刃的伤害倍率。0 = 未持有掷刃。 */
+  projectileDamageMult: number;
   /** 掠影：冲刺撞到敌人时的伤害倍率。0 = 关闭 */
   dashDamage: number;
   /** 蓄力：按住左键蓄力，松开打出全向斩 */
   chargedSlash: boolean;
+  /** 满蓄斩的伤害倍率。0 = 未持有蓄力。 */
+  chargedDamageMult: number;
 }
 
 export const BASE_STATS: Readonly<Stats> = {
@@ -69,8 +73,10 @@ export const BASE_STATS: Readonly<Stats> = {
   dashSlow: 0,
   counterDmg: 0,
   projectile: false,
+  projectileDamageMult: 0,
   dashDamage: 0,
   chargedSlash: false,
+  chargedDamageMult: 0,
 };
 
 // ---------------------------------------------------------------- 受击经济学
@@ -287,7 +293,8 @@ export const COSTS = {
 
 export const REWARDS = {
   combatChoices: 2,
-  eliteChoices: 3,
+  /** 精英房从不同原强化的未见进化分支中展示两张。 */
+  eliteChoices: 2,
   shopSlots: 3,
 } as const;
 
