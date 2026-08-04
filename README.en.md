@@ -43,18 +43,25 @@ Getting hit causes **0.18s of hitstun**: you can't move or attack, but it can be
 
 A run is an **8-floor branching map** (Slay the Spire style), generated once at the start and laid out in full from the beginning:
 
-- **Combat / Elite rooms** — free upgrades (the game time you spend clearing them is the tuition)
+- **Combat rooms** — choose one free new upgrade (the game time you spend clearing it is the tuition)
+- **Elite rooms** — deepen upgrades you already own through exclusive evolution branches
 - **Seconds Shop** — buy upgrades with seconds; you can always afford it because the cost is charged straight to your final score
 - **Shortcut Gate** — spend 9s to skip a whole floor; drawn on the map as a visible cross-floor edge
 - **Time Mend** — spend 12s to wipe 40% of your accumulated hit penalty
 
 Floor 1 is always a combat room, the second-to-last floor is always a rest stop (shop or mend), and the top floor is the boss.
 
+## Elite evolutions
+
+An elite room shows **two evolution branches** drawn from upgrades you already own. The two cards always belong to different base upgrades. A revealed branch leaves the run's reward pool permanently, even if you do not pick it; the other unseen branch of that same upgrade may still appear later.
+
+Every upgrade has a numeric evolution. Blade, Grit, and Flurry also have a separate branch that removes their original drawback. The two branches stack. The reward screen puts your **live total time** in large type above the cards, because choosing is not free — the clock keeps running.
+
 **Enemy strength has nothing to do with your elapsed time.** This is pure speedrunning: every purchase is the same kind of direct bet — spend 14 seconds on this upgrade, will it save you more than 14 seconds over the rest of the run? You can always do the math, but you can never be sure of the answer, because how much you save depends on how well you play from here on out.
 
 ## Seed
 
-Every run is fully determined by a **seed**: map topology, room types, wall layouts, enemy spawn points, upgrade draw order, boss move sequence. Type one in on the title screen; the result screen lets you copy it, or rerun the exact same seed with one click.
+Every run is fully determined by a **seed**: map topology, room types, wall layouts, enemy spawn points, upgrade/evolution draw order, boss move sequence. Type one in on the title screen; the result screen lets you copy it, or rerun the exact same seed with one click.
 
 Randomness is split into two independent streams:
 
@@ -98,7 +105,7 @@ Red = about to charge you. The number shown is the base price with no upgrades a
 - **Triangle (Charger, +2.0s)** — telegraphs a locked red line, then dashes at high speed. Direction locks in the moment the windup starts, so a single sidestep is enough
 - **Square (Shooter, +1.5s)** — locks on with a red dashed line, then fires one projectile
 - **Hexagon (Brute, +4.0s)** — a red ring expands from its feet; full damage the instant it finishes expanding
-- **Octagon (Boss)** — thick red line = triple charge / collapsing circle = 12-shot ring burst / three concentric rings = triple shockwave, weave through the gaps
+- **Octagon (Boss)** — thick red line = triple charge / collapsing circle = ring burst / three concentric rings = triple shockwave. At half health it enters **Recovery**: charges reverse back along their last line, two 10-shot rings rotate their gaps, and shockwaves return from outside in. Each recovery action leaves a 0.6s gold-core weak point that takes 150% damage.
 
 ## Code layout
 
