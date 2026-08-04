@@ -81,6 +81,20 @@ export const UPGRADES: readonly Upgrade[] = [
     id: 'bl_mark', module: 'blade', cost: 15,
     apply: (s) => { s.markMax = 3; s.markDuration = 3.0; s.markDamagePerStack = 0.20; },
   }),
+
+  // ---- 掠影模组专属 ----
+  mkUpgrade({
+    id: 'da_flash', module: 'dash', cost: 13,
+    apply: (s) => { s.dashFlashCdPerHit = 0.15; s.dashFlashCdCap = 0.45; },
+  }),
+  mkUpgrade({
+    id: 'da_break', module: 'dash', cost: 14,
+    apply: (s) => { s.breakMult = 0.20; s.breakBossMult = 0.12; },
+  }),
+  mkUpgrade({
+    id: 'da_ghost', module: 'dash', cost: 15,
+    apply: (s) => { s.ghostEnabled = true; s.ghostDelay = 0.45; s.ghostDamageMult = 0.75; },
+  }),
 ];
 
 const UPGRADE_BY_ID = new Map<string, Upgrade>(UPGRADES.map((u) => [u.id, u]));
@@ -181,6 +195,36 @@ export const EVOLUTIONS: readonly Evolution[] = [
   mkEvolution({
     id: 'bl_mark', branch: 'b', module: 'blade', cost: 21,
     apply: (s) => { s.markDetonate = true; s.markDetonateDamageMult = 0.9; s.markDetonateSplashMult = 0.45; },
+  }),
+
+  // ---- 连闪 → 无间 / 精准闪避
+  mkEvolution({
+    id: 'da_flash', branch: 'a', module: 'dash', cost: 19,
+    apply: (s) => { s.dashFlashCdCap = 0.75; s.dashFlashInvulnBonus = 0.15; },
+  }),
+  mkEvolution({
+    id: 'da_flash', branch: 'b', module: 'dash', cost: 19,
+    apply: (s) => { s.dashFlashDodgeRefund = 0.55; },
+  }),
+
+  // ---- 破阵 → 碎甲 / 追杀
+  mkEvolution({
+    id: 'da_break', branch: 'a', module: 'dash', cost: 20,
+    apply: (s) => { s.breakMult = 0.30; s.breakBossMult = 0.18; s.breakAll = true; },
+  }),
+  mkEvolution({
+    id: 'da_break', branch: 'b', module: 'dash', cost: 20,
+    apply: (s) => { s.breakChaseEnabled = true; s.breakChaseCdRefund = 0.35; s.breakChaseSpeedMult = 1.2; s.breakChaseSpeedDuration = 1.5; },
+  }),
+
+  // ---- 残影 → 双生残影 / 延迟猎杀
+  mkEvolution({
+    id: 'da_ghost', branch: 'a', module: 'dash', cost: 21,
+    apply: (s) => { s.ghostDamageMult = 0.65; s.ghostTwin = true; },
+  }),
+  mkEvolution({
+    id: 'da_ghost', branch: 'b', module: 'dash', cost: 21,
+    apply: (s) => { s.ghostDelay = 0.75; s.ghostDamageMult = 1.35; },
   }),
 ];
 

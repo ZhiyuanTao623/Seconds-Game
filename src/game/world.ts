@@ -96,11 +96,17 @@ export class World {
    * 刃印只在这里结算：MELEE 命中消耗已有层数（猎印额外乘一个易伤倍率），
    * BLADE 命中叠一层。爆印的自动引爆用 EXPLOSION 标签递归调用自己 ——
    * EXPLOSION 既不会消耗也不会叠加刃印，天然满足「爆炸不能再触发爆炸」。
+   *
+   * 破阵同样在这里结算：基础版只放大 MELEE 伤害，碎甲（breakAll）放大所有来源。
    */
   damageEnemy(e: Enemy, damage: number, tag: DamageTag = 'MELEE'): void {
     const s = this.stats;
     let d = damage;
     if (e.kind === 'boss' && e.vulnerable > 0) d *= BOSS.phaseTwo.weakPointDamageMult;
+
+    if (e.brokenT > 0 && (s.breakAll || tag === 'MELEE')) {
+      d *= 1 + (e.kind === 'boss' ? s.breakBossMult : s.breakMult);
+    }
 
     let markBonus = 0;
     if (tag === 'MELEE' && s.markMax > 0 && !s.markDetonate && e.markStacks > 0) {
@@ -119,6 +125,7 @@ export class World {
       return;
     }
 
+    const wasBroken = e.brokenT > 0;
     e.dead = true;
     this.fx.ring(e.x, e.y, e.r, e.r + 46, '#fff', 0.3);
     if (e.kind !== 'boss') {
@@ -127,6 +134,13 @@ export class World {
         this.ledger.addRefund(refund);
         this.fx.float(e.x, e.y - 20, `-${formatSeconds(refund)}s`, '#8fe388', 20);
       }
+    }
+
+    // 追杀（破阵进化 B）：击杀一个还处于破阵状态的敌人，减冲刺冷却 + 短暂加速
+    if (wasBroken && s.breakChaseEnabled) {
+      const p = this.player;
+      p.dashCd = Math.max(0, p.dashCd - s.breakChaseCdRefund);
+      p.speedBuffT = s.breakChaseSpeedDuration;
     }
   }
 
@@ -148,6 +162,25 @@ export class World {
       if (dist(e, other) > MODULES.blade.markSplashRadius) continue;
       this.damageEnemy(other, s.dmg * s.markDetonateSplashMult, 'EXPLOSION');
     }
+  }
+
+  /**
+   * 残影：冲刺结束时在给定位置埋一个定时炸弹，`ghostDelay` 秒后爆发。
+   * 排期走 `timeline`，顿帧/时停都会正确影响它——不用 setTimeout。
+   * 爆炸本身走 AFTEREFFECT 标签，不会再生成新的残影（没有任何代码在这个
+   * 标签下调度 spawnAfterimage，禁令是结构性的，不需要额外的状态位）。
+   */
+  spawnAfterimage(x: number, y: number): void {
+    const s = this.stats;
+    this.fx.ring(x, y, MODULES.dash.ghostRadius, MODULES.dash.ghostRadius, '#88aaff', s.ghostDelay);
+    this.timeline.after(s.ghostDelay, () => {
+      this.fx.ring(x, y, 8, MODULES.dash.ghostRadius + 20, '#88aaff', 0.3);
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        if (dist({ x, y }, e) > MODULES.dash.ghostRadius) continue;
+        this.damageEnemy(e, s.dmg * s.ghostDamageMult, 'AFTEREFFECT');
+      }
+    });
   }
 
   // ---------------------------------------------------------------- 演出钩子
@@ -347,4 +380,6 @@ function updateEnemyCommon(e: Enemy, dt: number): void {
     e.markT -= dt;
     if (e.markT <= 0) e.markStacks = 0;
   }
+
+  if (e.brokenT > 0) e.brokenT -= dt;
 }

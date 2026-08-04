@@ -58,6 +58,9 @@ export interface Enemy {
   markStacks: number;
   /** 刃印剩余持续时间；归零时 markStacks 清空。 */
   markT: number;
+
+  /** 破阵状态剩余时间（掠影模组「破阵」专属，其余情况恒为 0）。 */
+  brokenT: number;
 }
 
 export interface Bullet {

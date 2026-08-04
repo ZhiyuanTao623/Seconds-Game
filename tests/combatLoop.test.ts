@@ -145,6 +145,28 @@ describe('真实循环 fuzz：每一笔扣款都等于当时的价签', () => {
     for (const c of charges) assertChargeMatchesLabel(c);
     expect(charges.length).toBeGreaterThan(0);
   });
+
+  it('拿满掠影三专属强化（含连闪/破阵/残影）也不会让报价和实扣走岔', () => {
+    const run = new Run(1357, 'dash');
+    for (const id of ['da_flash', 'da_break', 'da_ghost', 'un_gale']) {
+      const u = upgradeById(id);
+      if (u) run.takeUpgrade(u);
+    }
+    run.takeEvolution(evolutionsFor('da_flash')[1]!); // 精准闪避：读险境要在真实战斗里也不出岔子
+    run.takeEvolution(evolutionsFor('da_ghost')[0]!); // 双生残影：两颗定时炸弹都要正确结算
+
+    const bossNode = run.map.nodes.get(run.map.bossId);
+    expect(bossNode).toBeDefined();
+
+    const world = buildRoom(run, bossNode!);
+    const charges = recordCharges(world);
+    simulate(world, 2400, testRng(13));
+
+    for (const c of charges) assertChargeMatchesLabel(c);
+    expect(charges.length).toBeGreaterThan(0);
+    world.timeline.clear();
+    expect(world.timeline.pending).toBe(0);
+  });
 });
 
 describe('无敌与僵直', () => {

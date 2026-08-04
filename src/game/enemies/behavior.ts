@@ -48,5 +48,6 @@ export function baseEnemy(
     vulnerable: 0,
     markStacks: 0,
     markT: 0,
+    brokenT: 0,
   };
 }

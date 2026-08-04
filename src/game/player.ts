@@ -17,6 +17,16 @@ export interface Player {
   dashDir: number;
   /** 本次冲刺已经用掠影打过的敌人，冲刺结束时清空 */
   dashHits: Set<Enemy>;
+  /** 本次冲刺的起点（残影专属：爆炸埋在这里，不是冲刺结束的位置） */
+  dashStartX: number;
+  dashStartY: number;
+  /** 连闪：本次冲刺已经减掉的冷却，用来在 cap 前停手 */
+  dashFlashReduced: number;
+  /** 精准闪避：这次冲刺是不是在险境中起跳的（冲刺开始那一刻判定一次） */
+  dashPerfectDodge: boolean;
+
+  /** 追杀（破阵进化）给的临时加速剩余时间 */
+  speedBuffT: number;
 
   /** 受击无敌剩余 */
   inv: number;
@@ -43,6 +53,8 @@ export function createPlayer(): Player {
     vx: 0, vy: 0, aim: -Math.PI / 2,
     atkCd: 0,
     dashCd: 0, dashT: 0, dashDir: 0, dashHits: new Set(),
+    dashStartX: 0, dashStartY: 0, dashFlashReduced: 0, dashPerfectDodge: false,
+    speedBuffT: 0,
     inv: 0, hitstun: 0, hitstunTotal: 0, flash: 0,
     streak: 0, streakT: 0,
     charging: false, chargeT: 0,
@@ -65,6 +77,7 @@ export function updatePlayer(world: World, input: InputSource, dt: number): void
   p.inv -= dt;
   p.flash -= dt;
   if (p.hitstun > 0) p.hitstun -= dt;
+  if (p.speedBuffT > 0) p.speedBuffT -= dt;
 
   if (p.streakT > 0) {
     p.streakT -= dt;
@@ -89,6 +102,11 @@ function updateDash(world: World, input: InputSource, dt: number): void {
     // 冲刺一律朝光标，与移动键无关，且在按下那一帧就锁死
     p.dashDir = p.aim;
     p.dashHits.clear();
+    p.dashStartX = p.x;
+    p.dashStartY = p.y;
+    p.dashFlashReduced = 0;
+    // 精准闪避：起跳那一刻是不是正处在险境里，只判一次
+    p.dashPerfectDodge = s.dashFlashDodgeRefund > 0 && isNearMiss(world);
     // 冲刺打断僵直与蓄力 —— 这是被围住时唯一的技术性出口
     p.hitstun = 0;
     p.charging = false;
@@ -101,20 +119,72 @@ function updateDash(world: World, input: InputSource, dt: number): void {
     p.x += Math.cos(p.dashDir) * PLAYER.dashSpeed * s.dashSpeedMult * dt;
     p.y += Math.sin(p.dashDir) * PLAYER.dashSpeed * s.dashSpeedMult * dt;
     if (s.dashDamage > 0) applyPhantomStrike(world, dt);
-    if (p.dashT <= 0) p.dashHits.clear();
+    if (p.dashT <= 0) finishDash(world);
   }
+}
+
+/**
+ * 精准闪避的「险境」判定：敌方弹即将命中，或冲锋兵正处于冲刺攻击阶段。
+ * 简化实现——不逐个敌人精确读秒到 0.18s，只覆盖两类最常见、最好读的威胁。
+ */
+function isNearMiss(world: World): boolean {
+  const p = world.player;
+  for (const b of world.bullets) {
+    if (!b.hostile) continue;
+    const gap = dist(p, b) - p.r - b.r;
+    if (gap < 0) return true;
+    const speed = Math.hypot(b.vx, b.vy);
+    if (speed > 0 && gap / speed <= MODULES.dash.perfectDodgeWindow) return true;
+  }
+  for (const e of world.enemies) {
+    if (!e.dead && e.kind === 'charger' && e.state === 'attack') return true;
+  }
+  return false;
+}
+
+/** 冲刺刚结束那一帧：结算无间的额外无敌、精准闪避的冷却返还、残影落点。 */
+function finishDash(world: World): void {
+  const p = world.player;
+  const s = world.stats;
+
+  if (s.dashFlashInvulnBonus > 0 && p.dashHits.size >= 3) {
+    p.inv = Math.max(p.inv, s.dashFlashInvulnBonus);
+  }
+  if (p.dashPerfectDodge && s.dashFlashDodgeRefund > 0) {
+    p.dashCd = Math.max(0, p.dashCd - s.dashCd * s.dashFlashDodgeRefund);
+  }
+  p.dashPerfectDodge = false;
+
+  if (s.ghostEnabled) {
+    world.spawnAfterimage(p.dashStartX, p.dashStartY);
+    if (s.ghostTwin) world.spawnAfterimage(p.x, p.y);
+  }
+
+  p.dashHits.clear();
 }
 
 /** 掠影：冲刺穿过敌人时造成伤害，同一次冲刺对同一敌人只结算一次。 */
 function applyPhantomStrike(world: World, _dt: number): void {
   const p = world.player;
+  const s = world.stats;
   for (const e of world.enemies) {
     if (e.dead || p.dashHits.has(e)) continue;
     if (dist(p, e) > p.r + e.r) continue;
     p.dashHits.add(e);
-    world.damageEnemy(e, world.stats.dmg * world.stats.dashDamage, 'DASH');
+    world.damageEnemy(e, s.dmg * s.dashDamage, 'DASH');
     world.fx.ring(e.x, e.y, 4, e.r + 26, '#88aaff', 0.24);
     world.addHitstop(0.02);
+
+    // 连闪：每命中一个新敌人减一点冷却，单次冲刺封顶
+    if (s.dashFlashCdPerHit > 0 && p.dashFlashReduced < s.dashFlashCdCap) {
+      const cut = Math.min(s.dashFlashCdPerHit, s.dashFlashCdCap - p.dashFlashReduced);
+      p.dashCd = Math.max(0, p.dashCd - cut);
+      p.dashFlashReduced += cut;
+    }
+    // 破阵：被冲刺穿过的敌人进入易伤状态
+    if (s.breakMult > 0) {
+      e.brokenT = e.kind === 'boss' ? MODULES.dash.breakBossDuration : MODULES.dash.breakDuration;
+    }
   }
 }
 
@@ -134,8 +204,9 @@ function updateMovement(world: World, input: InputSource, dt: number): void {
       const mag = Math.hypot(ix, iy);
       if (mag > 0) { ix /= mag; iy /= mag; }
     }
-    // 蓄势模组蓄力中移速打折 —— 判断安全窗口的代价
-    const spd = s.spd * (p.charging ? s.chargeMoveSpeedMult : 1);
+    // 蓄势模组蓄力中移速打折 —— 判断安全窗口的代价；追杀（破阵进化）给的临时加速
+    const speedMult = (p.charging ? s.chargeMoveSpeedMult : 1) * (p.speedBuffT > 0 ? s.breakChaseSpeedMult : 1);
+    const spd = s.spd * speedMult;
     p.x += (ix * spd + p.vx) * dt;
     p.y += (iy * spd + p.vy) * dt;
   }

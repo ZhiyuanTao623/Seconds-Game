@@ -108,6 +108,39 @@ export interface Stats {
   markDetonate: boolean;
   markDetonateDamageMult: number;
   markDetonateSplashMult: number;
+
+  // ---- 掠影：连闪 ----
+  /** 每命中一个新敌人减少的冲刺冷却。0 = 未持有连闪。 */
+  dashFlashCdPerHit: number;
+  /** 单次冲刺最多减少的冷却（封顶）。 */
+  dashFlashCdCap: number;
+  /** 无间进化：单次冲刺命中 ≥3 个敌人时，冲刺结束获得的额外无敌时长。 */
+  dashFlashInvulnBonus: number;
+  /** 精准闪避进化：险境中起跳的这次冲刺结束后，返还的冷却比例（0~1）。 */
+  dashFlashDodgeRefund: number;
+
+  // ---- 掠影：破阵 ----
+  /** 被冲刺穿过的敌人受到的伤害加成（非 Boss）。0 = 未持有破阵。 */
+  breakMult: number;
+  /** 同上，Boss 版本。 */
+  breakBossMult: number;
+  /** false = 只有 MELEE 命中吃加成（基础）；true = 所有伤害来源都吃（碎甲）。 */
+  breakAll: boolean;
+  /** 追杀进化：击杀破阵状态的敌人时减冲刺冷却 + 短暂加速。 */
+  breakChaseEnabled: boolean;
+  breakChaseCdRefund: number;
+  breakChaseSpeedMult: number;
+  breakChaseSpeedDuration: number;
+
+  // ---- 掠影：残影 ----
+  /** 是否持有残影。 */
+  ghostEnabled: boolean;
+  /** 冲刺结束到残影爆发之间的延迟。 */
+  ghostDelay: number;
+  /** 残影伤害倍率（相对 dmg）。 */
+  ghostDamageMult: number;
+  /** 双生残影进化：冲刺起点和终点各留一个。 */
+  ghostTwin: boolean;
 }
 
 export const BASE_STATS: Readonly<Stats> = {
@@ -152,6 +185,24 @@ export const BASE_STATS: Readonly<Stats> = {
   markDetonate: false,
   markDetonateDamageMult: 0,
   markDetonateSplashMult: 0,
+
+  dashFlashCdPerHit: 0,
+  dashFlashCdCap: 0,
+  dashFlashInvulnBonus: 0,
+  dashFlashDodgeRefund: 0,
+
+  breakMult: 0,
+  breakBossMult: 0,
+  breakAll: false,
+  breakChaseEnabled: false,
+  breakChaseCdRefund: 0,
+  breakChaseSpeedMult: 1,
+  breakChaseSpeedDuration: 0,
+
+  ghostEnabled: false,
+  ghostDelay: 0,
+  ghostDamageMult: 0,
+  ghostTwin: false,
 };
 
 // ---------------------------------------------------------------- 受击经济学
@@ -334,6 +385,13 @@ export const MODULES = {
   },
   dash: {
     damageMult: 0.85,
+    /** 精准闪避：起跳前多近的险境才算数（秒，敌方弹预计命中时间 ≤ 这个数）。 */
+    perfectDodgeWindow: 0.18,
+    /** 破阵持续时间：普通敌人 / Boss。两条进化都不改这两个数。 */
+    breakDuration: 1.6,
+    breakBossDuration: 1.0,
+    /** 残影引爆半径。两条进化都不改这个数。 */
+    ghostRadius: 75,
   },
   charge: {
     chargeTime: 0.60,

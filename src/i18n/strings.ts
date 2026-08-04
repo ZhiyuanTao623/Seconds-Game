@@ -13,12 +13,13 @@ export interface ModuleText { name: string; desc: string }
  * `mkUpgrade({ id: ... })` 的 id 都必须落在这个联合里，拼错字会在编译期报错，
  * 而不是运行时显示一个 undefined 的名字。
  *
- * 目前有 4 个通用强化 + 飞刃模组的 3 个专属强化；掠影/蓄势各 3 个专属强化
- * 会在各自的里程碑加入。
+ * 目前有 4 个通用强化 + 飞刃/掠影两个模组的专属强化；蓄势的 3 个专属强化
+ * 会在下一个里程碑加入。
  */
 export type UpgradeId =
   | 'un_gale' | 'un_blade' | 'un_tough' | 'un_abacus'
-  | 'bl_pierce' | 'bl_return' | 'bl_mark';
+  | 'bl_pierce' | 'bl_return' | 'bl_mark'
+  | 'da_flash' | 'da_break' | 'da_ghost';
 
 /**
  * 全部界面文案的形状。
@@ -232,6 +233,18 @@ const zh: Strings = {
       a: { name: '猎印', desc: '刃印最多提升至 5 层，每层使普通挥砍伤害 +5%，消耗时仍造成额外伤害。' },
       b: { name: '爆印', desc: '刃印叠满 3 层时自动引爆：对目标造成 90% 伤害，周围 90px 内敌人溅射 45% 伤害。' },
     },
+    da_flash: {
+      a: { name: '无间', desc: '单次冲刺最多减少 0.75s 冷却；穿过至少 3 个敌人时冲刺结束获得 0.15s 额外无敌。' },
+      b: { name: '精准闪避', desc: '在险境中起跳（敌方弹即将命中/冲锋兵正在冲刺）的这次冲刺，结束后返还 55% 冷却。' },
+    },
+    da_break: {
+      a: { name: '碎甲', desc: '破阵状态下的敌人受到所有伤害来源 +30%（Boss +18%），持续时间不变。' },
+      b: { name: '追杀', desc: '击杀处于破阵状态的敌人时，冲刺冷却 -0.35s，移速 +20% 持续 1.5s（不叠加，只刷新）。' },
+    },
+    da_ghost: {
+      a: { name: '双生残影', desc: '冲刺起点和终点各留一个残影，每个伤害为 dmg × 65%，同一敌人可以各中一次。' },
+      b: { name: '延迟猎杀', desc: '残影延迟提升至 0.75s，伤害提升至 dmg × 135%，爆发前显示清晰的警示范围。' },
+    },
   },
 
   shop: {
@@ -277,6 +290,9 @@ const zh: Strings = {
     bl_pierce: { name: '贯刃', desc: '飞刃可以穿透 1 个敌人，穿透后伤害降至 75%。' },
     bl_return: { name: '回旋', desc: '飞刃达到最大距离或撞墙时飞回玩家，去程和回程各能命中一次。' },
     bl_mark: { name: '刃印', desc: '飞刃命中敌人施加刃印（最多 3 层，持续 3.0s），普通挥砍消耗时每层多打 20% 伤害。' },
+    da_flash: { name: '连闪', desc: '每穿过一个新敌人，冲刺冷却 -0.15s，单次冲刺最多减 0.45s。' },
+    da_break: { name: '破阵', desc: '被冲刺穿过的敌人进入破阵状态：普通挥砍伤害 +20%（Boss +12%），持续 1.6s。' },
+    da_ghost: { name: '残影', desc: '冲刺结束后在起点留下残影，0.45s 后爆发，半径 75px，伤害 dmg × 75%。' },
   },
 };
 
@@ -386,6 +402,18 @@ const en: Strings = {
       a: { name: "Hunter's Mark", desc: 'Marks cap at 5 stacks; each stack adds +5% melee damage against the target, and consuming still deals bonus damage.' },
       b: { name: 'Detonating Mark', desc: 'At 3 stacks the mark auto-detonates: 90% damage to the target, 45% splash to enemies within 90px.' },
     },
+    da_flash: {
+      a: { name: 'Slipstream', desc: 'Dash cooldown reduction caps at 0.75s per dash; hitting 3+ enemies grants 0.15s bonus i-frames when the dash ends.' },
+      b: { name: 'Perfect Dodge', desc: 'If you dash while a hostile bullet is about to land or a charger is mid-charge, this dash refunds 55% of its cooldown when it ends.' },
+    },
+    da_break: {
+      a: { name: 'Shatter Armor', desc: 'Broken enemies take +30% damage from every source (+18% for the Boss); duration unchanged.' },
+      b: { name: 'Finishing Rush', desc: 'Killing a broken enemy cuts dash cooldown by 0.35s and grants +20% move speed for 1.5s (refreshes, does not stack).' },
+    },
+    da_ghost: {
+      a: { name: 'Twin Afterimage', desc: 'Leaves an afterimage at both the dash start and end points, each dealing dmg × 65%; the same enemy can be hit by both.' },
+      b: { name: 'Delayed Ambush', desc: 'Detonation delay increases to 0.75s and damage to dmg × 135%; a clear warning ring shows the blast radius beforehand.' },
+    },
   },
 
   shop: {
@@ -431,6 +459,9 @@ const en: Strings = {
     bl_pierce: { name: 'Pierce', desc: 'Your blade pierces 1 enemy; damage after piercing drops to 75%.' },
     bl_return: { name: 'Return', desc: 'The blade flies back after reaching max range or hitting a wall; can hit once on the way out and once on the way back.' },
     bl_mark: { name: 'Mark', desc: 'Blade hits apply a mark (up to 3 stacks, 3.0s). A normal slash consumes all stacks for +20% damage per stack.' },
+    da_flash: { name: 'Flash Step', desc: 'Each new enemy pierced during a dash cuts 0.15s off cooldown, capped at 0.45s per dash.' },
+    da_break: { name: 'Break Formation', desc: 'Enemies dashed through are broken: melee damage +20% (+12% for the Boss) for 1.6s.' },
+    da_ghost: { name: 'Afterimage', desc: 'Leaves an afterimage at the dash start point that detonates 0.45s later, radius 75px, dealing dmg × 75%.' },
   },
 };
 
