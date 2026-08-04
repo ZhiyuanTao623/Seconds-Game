@@ -65,7 +65,9 @@ function combatPlan(rng: RngStream, floor: number): EnemyKind[] {
 
 function elitePlan(rng: RngStream, floor: number): EnemyKind[] {
   const plan: EnemyKind[] = [];
-  for (let i = 0; i < 2 + Math.floor(floor / 2); i++) plan.push('brute');
+  // 原来是 2+floor(层数/2)，floor6 能堆到 5 只重甲——重甲本来就是全场最肉最痛的单位，
+  // 数量涨得比杂兵还快，是精英房"又多又硬"的主要来源。放缓成 1+floor(层数/3)。
+  for (let i = 0; i < 1 + Math.floor(floor / 3); i++) plan.push('brute');
   for (let i = 0; i < 2 + floor; i++) {
     plan.push(rng.pick(['charger', 'shooter'] as const));
   }
