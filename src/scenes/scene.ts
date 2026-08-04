@@ -27,6 +27,13 @@ export interface Scene {
    * 原型里站在地图界面可以无限盘算，时间压迫感在最需要它的地方消失了。
    */
   readonly countsTime: boolean;
+  /**
+   * 走表速度（省略 = 1 全额走表）。
+   *
+   * 规则：玩家能够操作或作决定时，时间才计入成绩。
+   * 纯动画（房间清空后的过场）返回 0；顿帧期间返回世界速度。
+   */
+  readonly timeScale?: number;
   /** 能不能按 ESC 暂停（标题页和结算页不需要） */
   readonly pausable: boolean;
   /** HUD 要读的玩家（只有战斗场景有） */

@@ -28,6 +28,14 @@ export class CombatScene implements Scene {
 
   get player(): Player { return this.world.player; }
 
+  /**
+   * 过场（纯动画，玩家已无事可做）停表；
+   * 战斗进行中顿帧时按世界速度打折 —— 世界停住的那一瞬不算玩家的成绩。
+   */
+  get timeScale(): number {
+    return this.clearTimer >= 0 ? 0 : this.world.timeScale;
+  }
+
   // enter 会在暂停恢复时被再调用一次，所以这里只能放幂等的操作
   enter(): void { this.ctx.overlay.hide(); }
 
@@ -39,7 +47,7 @@ export class CombatScene implements Scene {
       return;
     }
 
-    // 过场这段时间照常计时 —— 房间清空不代表停表
+    // 过场是纯动画：世界照演（尸体落地、特效散场），但表已经停了（timeScale = 0）
     this.clearTimer -= dt;
     if (this.clearTimer <= 0) this.finish();
   }

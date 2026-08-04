@@ -33,6 +33,8 @@ export class World {
   shake = 0;
   private hitstop = 0;
   private slow = 0;
+  /** 上一步世界时间相对真实时间的比例（顿帧时 < 1，其余为 1）。账本按它打折走表。 */
+  private _timeScale = 1;
 
   constructor(
     layoutIndex: number,
@@ -123,18 +125,23 @@ export class World {
 
   get cleared(): boolean { return this.enemies.length === 0; }
 
+  /** 世界在走多快（1 = 全速；顿帧期间 = hitstopScale）。账本按同一比例走表。 */
+  get timeScale(): number { return this._timeScale; }
+
   /**
    * 推进一个固定步长。
    *
-   * `dt` 是真实经过的时间，账本按它走表 —— 顿帧不给玩家退时间。
-   * （原型里顿帧会把 tPlay 也一起放慢，等于挨打能省下几毫秒；
-   *  在一个以秒计分的游戏里这个方向是错的。）
+   * `dt` 是真实经过的时间。顿帧期间世界按 hitstopScale 放慢，
+   * 账本也按同一比例走表（见 timeScale）——世界停住的那一瞬不计入成绩。
+   * 「时停」只放慢敌人，玩家照常操作，所以不影响 timeScale。
    */
   step(dt: number, input: InputSource): void {
     let worldDt = dt;
+    this._timeScale = 1;
     if (this.hitstop > 0) {
       this.hitstop -= dt;
       worldDt = dt * FEEL.hitstopScale;
+      this._timeScale = FEEL.hitstopScale;
     }
 
     let enemyDt = worldDt;

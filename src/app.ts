@@ -160,8 +160,13 @@ export class App implements SceneContext {
 
         const scene = this.activeScene;
         scene.update(FIXED_STEP);
-        // 场景可能在 update 里跳走了；时间记在「刚刚那一步所属的界面」上
-        if (scene.countsTime && this.currentRun) this.currentRun.ledger.tick(FIXED_STEP);
+        // 场景可能在 update 里跳走了；时间记在「刚刚那一步所属的界面」上。
+        // timeScale 让纯动画（战斗过场）和顿帧不按全价走表 ——
+        // 玩家能操作或作决定时，时间才计入成绩。
+        const scale = scene.timeScale ?? 1;
+        if (scene.countsTime && this.currentRun && scale > 0) {
+          this.currentRun.ledger.tick(FIXED_STEP * scale);
+        }
 
         // 「按下沿」只在第一个逻辑步里有效，之后翻页
         this.input.endStep();
