@@ -28,20 +28,10 @@ jobs:
 
       - run: npm ci
 
-      - name: 类型检查
-        run: npx tsc --noEmit
-
-      # tests/ 目前在 .gitignore 里，CI 上可能不存在
-      - name: 测试
-        run: |
-          if [ -d tests ]; then
-            npx vitest run
-          else
-            echo "::warning::仓库内没有 tests/，本次部署未经测试闸门"
-          fi
-
-      - name: 构建（产出单文件 HTML）
-        run: npx vite build
+      # 和本地推送闸门跑的是同一个脚本（类型检查 + 测试 + 构建）——
+      # CI 和本地不会出现"本地过了、CI 却挂了"的两套标准。
+      - name: 推送闸门
+        run: bash tests/run.sh
 
       - uses: actions/upload-pages-artifact@v3
         with:

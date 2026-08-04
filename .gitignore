@@ -4,6 +4,3 @@
 # 依赖与构建产物
 node_modules/
 dist/
-
-# 报价一致性测试：只在本地当推送闸门用，不发布到 GitHub
-tests/
