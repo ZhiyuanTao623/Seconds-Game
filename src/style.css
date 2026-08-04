@@ -55,6 +55,14 @@ canvas { display: block; background: #0d0d10; image-rendering: auto; }
 .ov-title { font-size: 13px; letter-spacing: 6px; opacity: .55; margin-bottom: 6px; }
 .ov-sub { font-size: 12px; opacity: .5; margin-bottom: 26px; line-height: 1.8; }
 
+.reward-total {
+  margin: -14px 0 24px;
+  display: flex; align-items: baseline; justify-content: center; gap: 9px;
+}
+.reward-total span { font-size: 11px; opacity: .55; letter-spacing: 1.5px; }
+.reward-total strong { color: #ffd166; font-size: 30px; letter-spacing: -1px; line-height: 1; }
+.reward-total small { color: #ff8a5c; font-size: 11px; }
+
 .cards { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
 .card {
   width: 250px; min-height: 190px; border: 1px solid #3a3a42; background: #111116;

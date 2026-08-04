@@ -64,6 +64,7 @@ export interface Strings {
     eliteCleared: string;
     body: string;
     eliteBody: string;
+    total: string;
     clockNote: string;
     free: string;
     got: (name: string) => string;
@@ -162,6 +163,7 @@ const zh: Strings = {
     eliteKind: '精英进化',
     eliteCleared: '精英已击破',
     eliteBody: '展示过的分支将永久离开本局奖励池 —— 选一个强化你的构筑。',
+    total: '当前总计',
     evolved: (name) => `进化 ${name}`,
   },
 
@@ -293,6 +295,7 @@ const en: Strings = {
     eliteKind: 'Elite Evolution',
     eliteCleared: 'Elite Defeated',
     eliteBody: 'Revealed branches leave this run forever — choose one to deepen your build.',
+    total: 'Current total',
     evolved: (name) => `Evolved ${name}`,
   },
 

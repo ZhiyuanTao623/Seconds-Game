@@ -1,5 +1,6 @@
 import { cardsHtml } from '../ui/overlay';
 import { drawUpgrades } from '../game/upgrades';
+import { formatSeconds } from '../game/pricing';
 import { t } from '../i18n/i18n';
 import type { CardSpec } from '../ui/overlay';
 import type { Scene, SceneContext } from './scene';
@@ -39,13 +40,19 @@ export class RewardScene implements Scene {
     const elite = this.evolutions.length > 0;
     this.ctx.overlay.show(`
       <div class="ov-title">${elite ? s.eliteCleared : s.cleared}</div>
-      <div class="ov-sub">${elite ? s.eliteBody : s.body}<b style="color:#ff8a5c">${s.clockNote}</b></div>
+      <div class="ov-sub">${elite ? s.eliteBody : s.body}</div>
+      <div class="reward-total">
+        <span>${s.total}</span><strong id="rewardTotal">${formatSeconds(this.ctx.run.ledger.total)}s</strong>
+        <small>${s.clockNote}</small>
+      </div>
       ${cardsHtml(cards)}
     `);
     this.ctx.overlay.onCards((i) => this.pick(i));
   }
 
   update(_dt: number): void {
+    const total = document.getElementById('rewardTotal');
+    if (total) total.textContent = `${formatSeconds(this.ctx.run.ledger.total)}s`;
     const index = this.ctx.input.cardIndex();
     if (index !== null) this.ctx.overlay.pressCard(index);
   }
