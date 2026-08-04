@@ -61,8 +61,8 @@ const canvasEl = (): HTMLCanvasElement => document.getElementById('c') as HTMLCa
 const overlayText = (): string => document.getElementById('ovinner')?.textContent ?? '';
 const overlayOpen = (): boolean => document.getElementById('ov')?.classList.contains('on') ?? false;
 
-/** 开局并停在地图上。 */
-function startRun(seed = '20260802'): { app: App; canvas: HTMLCanvasElement } {
+/** 从标题页填 seed、开始、在模组选择页选一张卡，停在地图上。 */
+function startRun(seed = '20260802', moduleIndex = 0): { app: App; canvas: HTMLCanvasElement } {
   const canvas = canvasEl();
   const app = new App(canvas);
 
@@ -70,7 +70,15 @@ function startRun(seed = '20260802'): { app: App; canvas: HTMLCanvasElement } {
   document.getElementById('start')!.click();
   pump();
 
+  (document.querySelectorAll('#ovinner .card')[moduleIndex] as HTMLElement).click();
+  pump();
+
   return { app, canvas };
+}
+
+/** 卡片列表里第一张没被打上「已售出」标记的（第 4 槽随机折扣不保证总是有货）。 */
+function firstBuyableCard(): HTMLElement | null {
+  return document.querySelector('#ovinner .card:not(.taken)');
 }
 
 describe('启动与场景流转', () => {
@@ -157,7 +165,7 @@ describe('一整局跑到底', () => {
 
     expect(overlayText()).toContain('房 间 已 清 空');
     const cards = document.querySelectorAll('#ovinner .card');
-    expect(cards.length).toBe(2); // 战斗房 2 选 1
+    expect(cards.length).toBe(3); // 战斗房 3 选 1
 
     (cards[0] as HTMLElement).click();
     pump();
@@ -261,7 +269,7 @@ describe('商店与奖励界面', () => {
     pump();
 
     const spendBefore = app.run.ledger.spend;
-    (document.querySelector('#ovinner .card') as HTMLElement).click();
+    firstBuyableCard()!.click();
     pump();
 
     expect(app.run.owned.length).toBe(1);

@@ -1,12 +1,16 @@
-import { COSTS, GRADES } from './config';
+import { COSTS, GRADES, PRICES } from './config';
 import { Ledger } from './ledger';
 import { generateMap } from './map';
-import { computeStats, drawEvolutions } from './upgrades';
+import { computeStats } from './upgrades';
+import { offerBaseCost } from './rewards';
 import { t } from '../i18n/i18n';
 import { RngStream } from '../core/rng';
 import type { MapNode, RunMap } from './map';
 import type { Stats } from './config';
-import type { Evolution, EvolutionKey, Upgrade } from './upgrades';
+import type { ModuleId } from './modules';
+import type { Evolution, EvolutionBranch, Upgrade } from './upgrades';
+import type { Offer } from './rewards';
+import type { UpgradeId } from '../i18n/i18n';
 
 /**
  * 一局游戏的全部状态。
@@ -20,14 +24,17 @@ import type { Evolution, EvolutionKey, Upgrade } from './upgrades';
  */
 export class Run {
   readonly seed: number;
+  readonly module: ModuleId;
   readonly map: RunMap;
   readonly ledger = new Ledger();
 
   owned: Upgrade[] = [];
-  /** 已在精英奖励里展示过的分支；展示即淘汰，即使玩家没选择。 */
-  readonly seenEvolutions = new Set<EvolutionKey>();
-  /** 已实际装备的进化分支。 */
-  readonly evolved = new Set<EvolutionKey>();
+  /**
+   * 已完成进化的强化 → 选中的分支。分支保留直到被选中：一个强化拥有的
+   * 两条分支在选择前都可能反复出现在奖励/商店里；选中一条后，这个强化
+   * 整体完成进化，两条分支（包括没选的那条）都不再出现在任何池子里。
+   */
+  readonly evolved = new Map<UpgradeId, EvolutionBranch>();
   /** HUD 用的版本号；进化不会改变 owned.length。 */
   upgradeVersion = 0;
   stats: Stats;
@@ -38,11 +45,12 @@ export class Run {
   available: string[];
   won = false;
 
-  constructor(seed: number) {
+  constructor(seed: number, module: ModuleId) {
     this.seed = seed >>> 0;
+    this.module = module;
     this.map = generateMap(new RngStream(this.seed).derive('map'));
     this.available = [...this.map.entries];
-    this.stats = computeStats(this.owned);
+    this.stats = computeStats(this.module, this.owned);
   }
 
   /** 某个节点专属的随机流。同一个 (seed, nodeId) 永远给出同一条。 */
@@ -66,36 +74,41 @@ export class Run {
   takeUpgrade(u: Upgrade): void {
     this.owned.push(u);
     this.upgradeVersion += 1;
-    this.stats = computeStats(this.owned, this.evolved);
+    this.stats = computeStats(this.module, this.owned, this.evolved);
   }
 
-  get ownedIds(): Set<string> { return new Set(this.owned.map((u) => u.id)); }
+  get ownedIds(): Set<UpgradeId> { return new Set(this.owned.map((u) => u.id)); }
 
-  /** 生成并立即淘汰已展示分支，确保同一局里不会二次出现。 */
-  drawEliteEvolutions(count: number): Evolution[] {
-    const options = drawEvolutions(this.rngFor(this.current?.id ?? 'elite', 'elite'), this.owned, this.seenEvolutions, count);
-    for (const option of options) this.seenEvolutions.add(option.key);
-    return options;
+  /** 精英/战斗/商店共用的奖励状态快照——见 rewards.ts 的生成函数。 */
+  get rewardState(): { module: ModuleId; ownedIds: ReadonlySet<UpgradeId>; owned: readonly Upgrade[]; evolved: ReadonlyMap<UpgradeId, EvolutionBranch> } {
+    return { module: this.module, ownedIds: this.ownedIds, owned: this.owned, evolved: this.evolved };
   }
 
+  /** 选中一条进化分支：强化完成进化，两条分支从此永久离开所有池子。 */
   takeEvolution(evolution: Evolution): void {
-    this.evolved.add(evolution.key);
+    this.evolved.set(evolution.id, evolution.branch);
     this.upgradeVersion += 1;
-    this.stats = computeStats(this.owned, this.evolved);
+    this.stats = computeStats(this.module, this.owned, this.evolved);
+  }
+
+  /** 领取一张奖励卡（基础强化或进化分支都走这里）。 */
+  takeOffer(offer: Offer): void {
+    if (offer.kind === 'upgrade') this.takeUpgrade(offer.upgrade);
+    else this.takeEvolution(offer.evolution);
   }
 
   upgradeLabel(u: Upgrade): string {
-    const tags: string[] = [];
-    if (this.evolved.has(`${u.id}:numeric`)) tags.push(t().evolution.numeric);
-    if (this.evolved.has(`${u.id}:costRemoval`)) tags.push(t().evolution.costRemoval);
-    return tags.length > 0 ? `${u.name} · ${tags.join('/')}` : u.name;
+    const branch = this.evolved.get(u.id);
+    if (!branch) return u.name;
+    return `${u.name} · ${t().evolutions[u.id][branch].name}`;
   }
 
   // ---------------------------------------------------------------- 定价
 
-  /** 「贪婪」会打折，但商店永远不会低于底价 —— 免得强化变成白送。 */
-  shopPrice(u: Upgrade): number {
-    return Math.max(COSTS.minShopPrice, Math.round(u.cost * this.stats.costMult));
+  /** discounted = 商店第 4 槽的随机折扣位；costMult 留给未来的省钱类强化。 */
+  shopPrice(offer: Offer, discounted = false): number {
+    const base = offerBaseCost(offer) * (discounted ? PRICES.discountSlotMult : 1);
+    return Math.max(COSTS.minShopPrice, Math.round(base * this.stats.costMult));
   }
 
   get shortcutCost(): number { return Math.round(COSTS.shortcut * this.stats.costMult); }

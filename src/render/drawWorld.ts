@@ -1,4 +1,4 @@
-import { ARENA, BOSS, BRUTE, CHARGED_SLASH, CHARGER, MEDIC, SHOOTER } from '../game/config';
+import { ARENA, BOSS, BRUTE, CHARGER, MEDIC, SHOOTER } from '../game/config';
 import { TAU, clamp, dist } from '../core/math';
 import { labelFor } from '../game/pricing';
 import { threatOf } from '../game/enemies';
@@ -307,8 +307,7 @@ function drawPlayer(r: Renderer, world: World): void {
 
   ctx.save();
   ctx.globalAlpha = p.dashT > 0 ? 0.45 : blinking ? 0.4 : 1;
-  // 只有持「反击」强化时才有黄色高亮 —— 没有这个强化，受击不产生反击窗口
-  ctx.fillStyle = world.stats.counterDmg > 0 && p.counter > 0 ? '#ffd166' : '#ffffff';
+  ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.arc(p.x, p.y, p.r, 0, TAU);
   ctx.fill();
@@ -350,7 +349,7 @@ function drawChargeRing(r: Renderer, world: World): void {
   if (!p.charging || p.chargeT <= 0) return;
 
   const { ctx } = r;
-  const k = clamp(p.chargeT / CHARGED_SLASH.chargeTime, 0, 1);
+  const k = clamp(p.chargeT / world.stats.chargeTime, 0, 1);
   const full = k >= 1;
   ctx.strokeStyle = full ? 'rgba(255,209,102,.95)' : 'rgba(255,209,102,.5)';
   ctx.lineWidth = full ? 3.5 : 2;

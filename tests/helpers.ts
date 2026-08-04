@@ -5,15 +5,16 @@ import { computeStats, upgradeById } from '../src/game/upgrades';
 import { labelFor, penaltyFor, priceLabel } from '../src/game/pricing';
 import type { PriceContext } from '../src/game/pricing';
 import type { Upgrade } from '../src/game/upgrades';
+import type { ModuleId } from '../src/game/modules';
 
-/** 造一个不需要浏览器的空房间。 */
-export function makeWorld(upgradeIds: readonly string[] = [], layout = 4): World {
+/** 造一个不需要浏览器的空房间。默认模组是飞刃 —— 大多数用例不关心具体是哪个。 */
+export function makeWorld(upgradeIds: readonly string[] = [], module: ModuleId = 'blade', layout = 4): World {
   const owned: Upgrade[] = upgradeIds.map((id) => {
     const u = upgradeById(id);
     if (!u) throw new Error(`unknown upgrade: ${id}`);
     return u;
   });
-  return new World(layout, new RngStream(1234), new Ledger(), computeStats(owned));
+  return new World(layout, new RngStream(1234), new Ledger(), computeStats(module, owned));
 }
 
 export interface Charge {

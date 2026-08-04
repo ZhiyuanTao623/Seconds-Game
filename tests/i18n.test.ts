@@ -95,16 +95,16 @@ describe('locale 状态机', () => {
 describe('强化名字/描述是 getter，随当前语言变化', () => {
   it('同一个 Upgrade 引用在两种语言下读出不同的文本', () => {
     setLocale('zh');
-    const blade = UPGRADES.find((u) => u.id === 'blade')!;
-    const zhName = blade.name;
-    const zhDesc = blade.desc;
+    const gale = UPGRADES.find((u) => u.id === 'un_gale')!;
+    const zhName = gale.name;
+    const zhDesc = gale.desc;
 
     setLocale('en');
-    expect(blade.name).not.toBe(zhName);
-    expect(blade.desc).not.toBe(zhDesc);
-    expect(blade.name).toBe(DICTS.en.upgrades.blade.name);
+    expect(gale.name).not.toBe(zhName);
+    expect(gale.desc).not.toBe(zhDesc);
+    expect(gale.name).toBe(DICTS.en.upgrades.un_gale.name);
 
     setLocale('zh');
-    expect(blade.name).toBe(zhName);
+    expect(gale.name).toBe(zhName);
   });
 });

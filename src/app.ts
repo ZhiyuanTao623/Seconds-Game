@@ -6,8 +6,10 @@ import { Hud } from './ui/hud';
 import { Overlay } from './ui/overlay';
 import { getLocale, onLocaleChange, t, toggleLocale } from './i18n/i18n';
 import { MapScene } from './scenes/mapScene';
+import { ModuleSelectScene } from './scenes/moduleSelect';
 import { ResultScene } from './scenes/result';
 import { TitleScene } from './scenes/title';
+import type { ModuleId } from './game/modules';
 import type { Scene, SceneContext } from './scenes/scene';
 
 export class App implements SceneContext {
@@ -54,9 +56,10 @@ export class App implements SceneContext {
 
   toMap(): void { this.go(new MapScene(this)); }
   toResult(): void { this.go(new ResultScene(this)); }
+  toModuleSelect(seed: number): void { this.go(new ModuleSelectScene(this, seed)); }
 
-  startRun(seed: number): void {
-    this.currentRun = new Run(seed);
+  startRun(seed: number, module: ModuleId): void {
+    this.currentRun = new Run(seed, module);
     this.hud.reset();
     this.setPaused(false);
     this.toMap();

@@ -34,7 +34,7 @@ export class ResultScene implements Scene {
     `);
 
     // 同 seed 重跑是竞速的基本诉求：同一张图才能比出谁快
-    overlay.onClick('again', () => this.ctx.startRun(run.seed));
+    overlay.onClick('again', () => this.ctx.startRun(run.seed, run.module));
     overlay.onClick('fresh', () => this.ctx.toTitle());
     overlay.onClick('seedout', () => {
       void navigator.clipboard?.writeText(String(run.seed));

@@ -1,26 +1,35 @@
 import type { Stats } from './config';
-import { BASE_STATS, CHARGED_SLASH, THROW_BLADE } from './config';
+import { BASE_STATS } from './config';
 import { t } from '../i18n/i18n';
 import type { RngStream } from '../core/rng';
+import type { ModuleId } from './modules';
+import { applyModuleBase } from './modules';
 import type { UpgradeId } from '../i18n/i18n';
+
+export type EvolutionBranch = 'a' | 'b';
+export type EvolutionKey = `${UpgradeId}:${EvolutionBranch}`;
 
 export interface Upgrade {
   readonly id: UpgradeId;
-  /** 商店基础价（秒）。战斗房掉落免费。 */
+  /** 属于哪个模组的专属强化；通用强化不挂在任何模组下。 */
+  readonly module: ModuleId | 'universal';
+  /** 商店基础价（秒）。战斗房/精英房掉落免费。 */
   readonly cost: number;
   readonly name: string;
   readonly desc: string;
   apply(s: Stats): void;
 }
 
-export type EvolutionKind = 'numeric' | 'costRemoval';
-export type EvolutionKey = `${UpgradeId}:${EvolutionKind}`;
-
-/** 精英房奖励：强化已有卡的一条独立分支，不会把原卡重复塞进背包。 */
+/**
+ * 强化只有两个阶段：基础 → 进化 A 或 B。选完一条分支，另一条永久关闭，
+ * 强化本身完成进化，不再出现在任何奖励/商店池子里，也不能继续叠数值。
+ */
 export interface Evolution {
   readonly key: EvolutionKey;
   readonly id: UpgradeId;
-  readonly kind: EvolutionKind;
+  readonly branch: EvolutionBranch;
+  readonly module: ModuleId | 'universal';
+  readonly cost: number;
   readonly name: string;
   readonly desc: string;
   apply(s: Stats): void;
@@ -28,6 +37,7 @@ export interface Evolution {
 
 interface UpgradeDef {
   id: UpgradeId;
+  module: ModuleId | 'universal';
   cost: number;
   apply(s: Stats): void;
 }
@@ -40,6 +50,7 @@ interface UpgradeDef {
 function mkUpgrade(def: UpgradeDef): Upgrade {
   return {
     id: def.id,
+    module: def.module,
     cost: def.cost,
     apply: def.apply,
     get name(): string { return t().upgrades[def.id].name; },
@@ -48,118 +59,147 @@ function mkUpgrade(def: UpgradeDef): Upgrade {
 }
 
 /**
- * 13 个强化，同一局内不重复。
- *
- * 前 10 个只改数字；最后 3 个（掷刃 / 掠影 / 蓄力）各自动了一条不同的
- * 操作前提 —— 输出必须贴身、冲刺是纯防御、按住左键连点。
+ * 通用强化：适用于所有模组，但不能取代模组自身玩法。
+ * 模组专属强化（飞刃/掠影/蓄势各 3 个）分别在各自里程碑加入这个数组。
  */
 export const UPGRADES: readonly Upgrade[] = [
-  mkUpgrade({ id: 'blade', cost: 14, apply: (s) => { s.dmg *= 1.6; s.penMult *= 1.4; } }),
-  mkUpgrade({ id: 'gale', cost: 16, apply: (s) => { s.spd *= 1.16; s.dashCd *= 0.65; } }),
-  mkUpgrade({ id: 'tough', cost: 15, apply: (s) => { s.penMult *= 0.65; s.dmg *= 0.85; } }),
-  mkUpgrade({ id: 'reach', cost: 12, apply: (s) => { s.range *= 1.45; s.arc *= 1.15; } }),
-  mkUpgrade({ id: 'rapid', cost: 14, apply: (s) => { s.atkCd *= 0.6; s.dmg *= 0.9; } }),
-  mkUpgrade({ id: 'exec', cost: 20, apply: (s) => { s.exec = Math.max(s.exec, 0.3); } }),
-  mkUpgrade({ id: 'greed', cost: 13, apply: (s) => { s.costMult *= 0.65; } }),
-  mkUpgrade({ id: 'stasis', cost: 18, apply: (s) => { s.dashSlow = 0.55; } }),
-  mkUpgrade({ id: 'riposte', cost: 11, apply: (s) => { s.counterDmg = 0.85; } }),
-  mkUpgrade({ id: 'abacus', cost: 15, apply: (s) => { s.refund += 0.5; } }),
-
-  // ---- 改变操作方式的三个
-  mkUpgrade({ id: 'throw', cost: 17, apply: (s) => { s.projectile = true; s.projectileDamageMult = THROW_BLADE.damageMult; } }),
-  mkUpgrade({ id: 'phantom', cost: 16, apply: (s) => { s.dashDamage = 1.2; } }),
-  mkUpgrade({ id: 'charge', cost: 15, apply: (s) => { s.chargedSlash = true; s.chargedDamageMult = CHARGED_SLASH.damageMult; } }),
+  mkUpgrade({ id: 'un_gale', module: 'universal', cost: 10, apply: (s) => { s.spd *= 1.12; s.dashCd *= 0.88; } }),
+  mkUpgrade({ id: 'un_blade', module: 'universal', cost: 13, apply: (s) => { s.dmg *= 1.22; s.penMult *= 1.15; } }),
+  mkUpgrade({ id: 'un_tough', module: 'universal', cost: 12, apply: (s) => { s.penMult *= 0.78; s.dmg *= 0.94; } }),
+  mkUpgrade({ id: 'un_abacus', module: 'universal', cost: 11, apply: (s) => { s.refundNormal = 0.25; s.refundElite = 0.25; } }),
 ];
 
 const UPGRADE_BY_ID = new Map<string, Upgrade>(UPGRADES.map((u) => [u.id, u]));
 export const upgradeById = (id: string): Upgrade | undefined => UPGRADE_BY_ID.get(id);
 
-interface EvolutionDef { id: UpgradeId; kind: EvolutionKind; apply(s: Stats): void }
+interface EvolutionDef {
+  id: UpgradeId;
+  branch: EvolutionBranch;
+  module: ModuleId | 'universal';
+  cost: number;
+  apply(s: Stats): void;
+}
 
 function mkEvolution(def: EvolutionDef): Evolution {
   return {
-    key: `${def.id}:${def.kind}`,
+    key: `${def.id}:${def.branch}`,
     id: def.id,
-    kind: def.kind,
+    branch: def.branch,
+    module: def.module,
+    cost: def.cost,
     apply: def.apply,
-    get name(): string { return `${t().upgrades[def.id].name} · ${t().evolution[def.kind]}`; },
-    get desc(): string { return t().evolutions[def.id][def.kind]?.desc ?? ''; },
+    get name(): string { return `${t().upgrades[def.id].name} · ${t().evolutions[def.id][def.branch].name}`; },
+    get desc(): string { return t().evolutions[def.id][def.branch].desc; },
   };
 }
 
 /**
- * 数值进化与解除代价是两条可叠加分支。只有真正存在副作用的原强化才有后者。
- * 所有数值都以「持有原强化后的总效果」为目标，而非额外写死一套独立效果。
+ * 每个强化恰好 2 条进化，互斥。数值目标是「持有基础强化后的总效果」，
+ * 用相对基础值的比例写，而不是写死一套独立效果 —— 这样 apply 顺序
+ * （基础 → 选中分支）永远给出同一个确定结果。
  */
 export const EVOLUTIONS: readonly Evolution[] = [
-  mkEvolution({ id: 'blade', kind: 'numeric', apply: (s) => { s.dmg *= 1.25; } }),
-  mkEvolution({ id: 'blade', kind: 'costRemoval', apply: (s) => { s.penMult /= 1.4; } }),
-  mkEvolution({ id: 'gale', kind: 'numeric', apply: (s) => { s.spd *= 1.120689655; s.dashCd *= 0.8; } }),
-  mkEvolution({ id: 'tough', kind: 'numeric', apply: (s) => { s.penMult *= 0.5 / 0.65; } }),
-  mkEvolution({ id: 'tough', kind: 'costRemoval', apply: (s) => { s.dmg /= 0.85; } }),
-  mkEvolution({ id: 'reach', kind: 'numeric', apply: (s) => { s.range *= 1.8 / 1.45; s.arc *= 1.35 / 1.15; } }),
-  mkEvolution({ id: 'rapid', kind: 'numeric', apply: (s) => { s.atkCd *= 0.45 / 0.6; } }),
-  mkEvolution({ id: 'rapid', kind: 'costRemoval', apply: (s) => { s.dmg /= 0.9; } }),
-  mkEvolution({ id: 'exec', kind: 'numeric', apply: (s) => { s.exec = Math.max(s.exec, 0.45); } }),
-  mkEvolution({ id: 'greed', kind: 'numeric', apply: (s) => { s.costMult *= 0.45 / 0.65; } }),
-  mkEvolution({ id: 'stasis', kind: 'numeric', apply: (s) => { s.dashSlow = 0.85; } }),
-  mkEvolution({ id: 'riposte', kind: 'numeric', apply: (s) => { s.counterDmg = 1.4; } }),
-  mkEvolution({ id: 'abacus', kind: 'numeric', apply: (s) => { s.refund += 0.5; } }),
-  mkEvolution({ id: 'throw', kind: 'numeric', apply: (s) => { s.projectileDamageMult = 0.85; } }),
-  mkEvolution({ id: 'phantom', kind: 'numeric', apply: (s) => { s.dashDamage = 1.8; } }),
-  mkEvolution({ id: 'charge', kind: 'numeric', apply: (s) => { s.chargedDamageMult = 3.4; } }),
+  // ---- 疾风
+  mkEvolution({
+    id: 'un_gale', branch: 'a', module: 'universal', cost: 15,
+    apply: (s) => { s.spd *= 1.22 / 1.12; s.dashSpeedMult *= 1.12; },
+  }),
+  mkEvolution({
+    id: 'un_gale', branch: 'b', module: 'universal', cost: 15,
+    apply: (s) => { s.dashCd *= 0.68 / 0.88; s.dashSpeedMult *= 0.92; },
+  }),
+
+  // ---- 利刃
+  mkEvolution({
+    id: 'un_blade', branch: 'a', module: 'universal', cost: 18,
+    apply: (s) => { s.dmg *= 1.52 / 1.22; s.penMult *= 1.40 / 1.15; },
+  }),
+  mkEvolution({
+    id: 'un_blade', branch: 'b', module: 'universal', cost: 17,
+    apply: (s) => { s.dmg *= 1.34 / 1.22; s.penMult /= 1.15; },
+  }),
+
+  // ---- 韧体
+  mkEvolution({
+    id: 'un_tough', branch: 'a', module: 'universal', cost: 17,
+    apply: (s) => { s.penMult *= 0.58 / 0.78; s.dmg *= 0.84 / 0.94; },
+  }),
+  mkEvolution({
+    id: 'un_tough', branch: 'b', module: 'universal', cost: 16,
+    apply: (s) => { s.taxWindow = 3.2; },
+  }),
+
+  // ---- 精算
+  mkEvolution({
+    id: 'un_abacus', branch: 'a', module: 'universal', cost: 15,
+    apply: (s) => { s.refundNormal = 0.45; s.refundElite = 0.45; },
+  }),
+  mkEvolution({
+    id: 'un_abacus', branch: 'b', module: 'universal', cost: 16,
+    apply: (s) => { s.refundElite = 0.75; s.refundEliteClear = 1.0; },
+  }),
 ];
 
-const EVOLUTION_BY_KEY = new Map<EvolutionKey, Evolution>(EVOLUTIONS.map((e) => [e.key, e]));
-export const evolutionByKey = (key: EvolutionKey): Evolution | undefined => EVOLUTION_BY_KEY.get(key);
+const EVOLUTIONS_BY_ID = new Map<UpgradeId, [Evolution, Evolution]>();
+for (const e of EVOLUTIONS) {
+  const pair = EVOLUTIONS_BY_ID.get(e.id) ?? ([] as unknown as [Evolution, Evolution]);
+  pair[e.branch === 'a' ? 0 : 1] = e;
+  EVOLUTIONS_BY_ID.set(e.id, pair);
+}
 
-/** 把持有的强化叠到基础值上。顺序无关 —— 全部是乘法或取最大值。 */
-export function computeStats(owned: readonly Upgrade[], evolutionKeys: ReadonlySet<EvolutionKey> = new Set()): Stats {
-  const s: Stats = { ...BASE_STATS };
-  for (const u of owned) u.apply(s);
-  // 解除代价必须先于数值进化结算，保证两者叠加时结果稳定且与获取顺序无关。
-  for (const e of EVOLUTIONS) if (e.kind === 'costRemoval' && evolutionKeys.has(e.key)) e.apply(s);
-  for (const e of EVOLUTIONS) if (e.kind === 'numeric' && evolutionKeys.has(e.key)) e.apply(s);
-  return s;
+/** 一个强化的两条进化分支（若存在）。 */
+export function evolutionsFor(id: UpgradeId): readonly Evolution[] {
+  return EVOLUTIONS_BY_ID.get(id) ?? [];
+}
+
+export function evolutionByKey(key: EvolutionKey): Evolution | undefined {
+  const [id, branch] = key.split(':') as [UpgradeId, EvolutionBranch];
+  return evolutionsFor(id).find((e) => e.branch === branch);
 }
 
 /**
- * 抽 k 个还没拿到的强化。
+ * 把模组基础能力 + 持有的强化 + 选中的进化叠到基础值上。
  *
+ * `evolved` 记录每个已完成进化的强化选中了哪条分支；同一个强化只会
+ * 出现一次（选了 A 就不可能再选 B），所以这里不存在顺序歧义。
+ */
+export function computeStats(
+  module: ModuleId,
+  owned: readonly Upgrade[],
+  evolved: ReadonlyMap<UpgradeId, EvolutionBranch> = new Map(),
+): Stats {
+  const s: Stats = { ...BASE_STATS };
+  applyModuleBase(module, s);
+  for (const u of owned) u.apply(s);
+  for (const u of owned) {
+    const branch = evolved.get(u.id);
+    if (!branch) continue;
+    const evolution = evolutionsFor(u.id).find((e) => e.branch === branch);
+    evolution?.apply(s);
+  }
+  return s;
+}
+
+/** 一个强化是否已经完成进化（选中了任意一条分支）。 */
+export const isEvolved = (evolved: ReadonlyMap<UpgradeId, EvolutionBranch>, id: UpgradeId): boolean =>
+  evolved.has(id);
+
+/**
+ * 抽 k 个还没拿到的强化，限定在给定模组集合内（自己的模组 + 通用）。
  * 用调用方传进来的 rng —— 保证同一个 seed 下，同一个节点开出的
  * 强化永远一样，和玩家在别处做了什么无关。
  */
-export function drawUpgrades(rng: RngStream, owned: ReadonlySet<string>, k: number): Upgrade[] {
-  const pool = UPGRADES.filter((u) => !owned.has(u.id));
+export function drawUpgrades(
+  rng: RngStream,
+  owned: ReadonlySet<string>,
+  allowedModules: ReadonlySet<ModuleId | 'universal'>,
+  k: number,
+): Upgrade[] {
+  const pool = UPGRADES.filter((u) => !owned.has(u.id) && allowedModules.has(u.module));
   const out: Upgrade[] = [];
   while (out.length < k && pool.length > 0) {
     const picked = rng.take(pool);
     if (picked) out.push(picked);
-  }
-  return out;
-}
-
-/**
- * 一次精英奖励只会给同一个原强化一张分支卡；已展示过的分支不再入池。
- * 分支在展示时即被 Run 标记为 seen，因此不选择也不会在之后重新出现。
- */
-export function drawEvolutions(
-  rng: RngStream,
-  owned: readonly Upgrade[],
-  seen: ReadonlySet<EvolutionKey>,
-  k: number,
-): Evolution[] {
-  const byUpgrade = owned.map((u) => ({
-    id: u.id,
-    choices: EVOLUTIONS.filter((e) => e.id === u.id && !seen.has(e.key)),
-  })).filter((entry) => entry.choices.length > 0);
-
-  const out: Evolution[] = [];
-  while (out.length < k && byUpgrade.length > 0) {
-    const entry = rng.take(byUpgrade);
-    if (!entry) break;
-    const evolution = rng.pick(entry.choices);
-    out.push(evolution);
   }
   return out;
 }

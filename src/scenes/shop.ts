@@ -1,12 +1,11 @@
-import { REWARDS } from '../game/config';
 import { cardsHtml } from '../ui/overlay';
-import { drawUpgrades } from '../game/upgrades';
+import { drawShopStock, offerDesc, offerName } from '../game/rewards';
 import { formatSeconds } from '../game/pricing';
 import { t } from '../i18n/i18n';
 import type { CardSpec } from '../ui/overlay';
 import type { Scene, SceneContext } from './scene';
 import type { Renderer } from '../render/renderer';
-import type { Upgrade } from '../game/upgrades';
+import type { ShopSlot } from '../game/rewards';
 import type { MapNode } from '../game/map';
 
 /**
@@ -19,14 +18,10 @@ export class ShopScene implements Scene {
   readonly countsTime = true;
   readonly pausable = true;
 
-  private stock: (Upgrade | null)[];
+  private stock: ShopSlot[];
 
   constructor(private ctx: SceneContext, private node: MapNode) {
-    this.stock = drawUpgrades(
-      ctx.run.rngFor(node.id, 'shop'),
-      ctx.run.ownedIds,
-      REWARDS.shopSlots,
-    );
+    this.stock = drawShopStock(ctx.run.rngFor(node.id, 'shop'), ctx.run.rewardState);
   }
 
   enter(): void { this.render_(); }
@@ -43,16 +38,16 @@ export class ShopScene implements Scene {
     const { run, overlay } = this.ctx;
     const s = t().shop;
 
-    const cards: CardSpec[] = this.stock.map((u) =>
-      u === null
-        ? { kind: s.sold, name: '—', desc: '', price: { cls: 'cost', text: '' }, disabled: true }
-        : {
-            kind: t().reward.kind,
-            name: u.name,
-            desc: u.desc,
-            price: { cls: 'cost', text: `− ${run.shopPrice(u)}s` },
-          },
-    );
+    const cards: CardSpec[] = this.stock.map((slot) => {
+      if (!slot.offer) return { kind: s.sold, name: '—', desc: '', price: { cls: 'cost', text: '' }, disabled: true };
+      const price = run.shopPrice(slot.offer, slot.discounted);
+      return {
+        kind: slot.offer.kind === 'evolution' ? t().reward.eliteKind : t().reward.kind,
+        name: offerName(slot.offer),
+        desc: offerDesc(slot.offer),
+        price: { cls: 'cost', text: slot.discounted ? `${s.discount} − ${price}s` : `− ${price}s` },
+      };
+    });
 
     overlay.show(`
       <div class="ov-title">${s.title}</div>
@@ -70,15 +65,15 @@ export class ShopScene implements Scene {
   }
 
   private buy(index: number): void {
-    const upgrade = this.stock[index];
-    if (!upgrade) return;
+    const slot = this.stock[index];
+    if (!slot?.offer) return;
 
-    const price = this.ctx.run.shopPrice(upgrade);
+    const price = this.ctx.run.shopPrice(slot.offer, slot.discounted);
     this.ctx.run.ledger.addSpend(price);
-    this.ctx.run.takeUpgrade(upgrade);
-    this.stock[index] = null;
+    this.ctx.run.takeOffer(slot.offer);
+    this.stock[index] = { offer: null, discounted: false };
 
-    this.ctx.overlay.toast(t().shop.bought(price, upgrade.name));
+    this.ctx.overlay.toast(t().shop.bought(price, offerName(slot.offer)));
     this.render_();
   }
 

@@ -21,7 +21,7 @@ const ELITE_FLOOR_RANGE = [3, 4, 5, 6] as const;
 describe('精英房数量护栏', () => {
   it('重甲数量按 1+floor(层数/3) 走，不会又悄悄涨回去', () => {
     for (const seed of seeds) {
-      const run = new Run(seed);
+      const run = new Run(seed, 'blade');
       for (const node of run.map.nodes.values()) {
         if (node.kind !== 'elite') continue;
         const world = buildRoom(run, node);
@@ -34,7 +34,7 @@ describe('精英房数量护栏', () => {
 
   it('精英房总敌人数不超过 13——超了说明有人往里加东西时忘了核算总量', () => {
     for (const seed of seeds) {
-      const run = new Run(seed);
+      const run = new Run(seed, 'blade');
       for (const node of run.map.nodes.values()) {
         if (node.kind !== 'elite') continue;
         const world = buildRoom(run, node);

@@ -29,7 +29,14 @@ export const PLAYER = {
   enemyFriction: 0.002,
 } as const;
 
-/** 强化会在这份基础值上叠乘。字段全部可写，因为 Stats 是它的一份拷贝。 */
+/**
+ * 强化会在这份基础值上叠乘。字段全部可写，因为 Stats 是它的一份拷贝。
+ *
+ * 模组基础能力（飞刃/掠影/蓄势）在 computeStats 里最先结算 —— 见 modules.ts。
+ * 三个 charge* 字段不只是「蓄力强不强」，蓄势模组选中的那一刻就把
+ * chargedSlash 打开，chargeTime/chargeDamageMult 等数值也一起写好；
+ * 之后的专属进化只是在这些数值上继续叠乘。
+ */
 export interface Stats {
   dmg: number;
   atkCd: number;
@@ -37,26 +44,36 @@ export interface Stats {
   arc: number;
   spd: number;
   dashCd: number;
+  /** 冲刺速度倍率，决定冲刺距离（时长不变）。 */
+  dashSpeedMult: number;
   penMult: number;
   costMult: number;
-  /** 处决阈值：血量低于这个比例的非 Boss 敌人被斩击直接斩杀。0 = 关闭 */
-  exec: number;
-  /** 每击杀一个非 Boss 敌人返还的秒数 */
-  refund: number;
-  /** 冲刺触发的全场减速持续时间。0 = 关闭 */
-  dashSlow: number;
-  /** 反击窗口内的额外伤害倍率。0 = 没有这个强化，受击也不产生反击窗口 */
-  counterDmg: number;
-  /** 掷刃：挥砍时附带发射刃弹 */
+  /** 连击税窗口：距上次受击多久内继续累进。 */
+  taxWindow: number;
+  /** 击杀普通敌人（冲锋兵/射手）返还的秒数。0 = 未持有精算。 */
+  refundNormal: number;
+  /** 击杀重甲/医疗兵返还的秒数。 */
+  refundElite: number;
+  /** 精英房清空时额外返还的秒数（一次性，不按击杀数）。 */
+  refundEliteClear: number;
+  /** 飞刃模组：挥砍时附带发射刃弹 */
   projectile: boolean;
-  /** 掷刃的伤害倍率。0 = 未持有掷刃。 */
+  /** 刃弹伤害倍率。0 = 未选飞刃模组。 */
   projectileDamageMult: number;
-  /** 掠影：冲刺撞到敌人时的伤害倍率。0 = 关闭 */
+  /** 掠影模组：冲刺撞到敌人时的伤害倍率。0 = 未选掠影模组。 */
   dashDamage: number;
-  /** 蓄力：按住左键蓄力，松开打出全向斩 */
+  /** 蓄势模组：按住左键蓄力，松开打出全向斩 */
   chargedSlash: boolean;
-  /** 满蓄斩的伤害倍率。0 = 未持有蓄力。 */
-  chargedDamageMult: number;
+  /** 蓄满所需时长。0 = 未选蓄势模组。 */
+  chargeTime: number;
+  /** 满蓄斩的伤害倍率。 */
+  chargeDamageMult: number;
+  /** 满蓄斩的范围倍率（相对普通挥砍 range）。 */
+  chargeRangeMult: number;
+  /** 满蓄斩命中/落空后的后摇 = atkCd × 这个数。 */
+  chargeRecoverMult: number;
+  /** 蓄力过程中的移速倍率。 */
+  chargeMoveSpeedMult: number;
 }
 
 export const BASE_STATS: Readonly<Stats> = {
@@ -66,17 +83,22 @@ export const BASE_STATS: Readonly<Stats> = {
   arc: 1.9,
   spd: 268,
   dashCd: 1.05,
+  dashSpeedMult: 1,
   penMult: 1,
   costMult: 1,
-  exec: 0,
-  refund: 0,
-  dashSlow: 0,
-  counterDmg: 0,
+  taxWindow: 5.0,
+  refundNormal: 0,
+  refundElite: 0,
+  refundEliteClear: 0,
   projectile: false,
   projectileDamageMult: 0,
   dashDamage: 0,
   chargedSlash: false,
-  chargedDamageMult: 0,
+  chargeTime: 0,
+  chargeDamageMult: 0,
+  chargeRangeMult: 1,
+  chargeRecoverMult: 1,
+  chargeMoveSpeedMult: 1,
 };
 
 // ---------------------------------------------------------------- 受击经济学
@@ -92,13 +114,8 @@ export const HIT = {
   /** 围殴护栏：连击层数到这个数以后僵直减半，避免被围住后无限叠税。 */
   hitstunHalveAtStreak: 3,
 
-  /** 连击税窗口：距上次受击多久内继续累进 */
-  taxWindow: 5.0,
-  /** 每多挨一次，价码乘这个数 */
+  /** 每多挨一次，价码乘这个数。窗口时长走 Stats.taxWindow（「适应」进化会改它）。 */
   taxStep: 1.3,
-
-  /** 反击窗口时长（只有持有「反击」强化时才会开启） */
-  riposteWindow: 2.0,
 
   flash: 0.35,
   hitstop: 0.07,
@@ -244,22 +261,29 @@ export const BOSS = {
   },
 } as const;
 
-// ---------------------------------------------------------------- 强化专属数值
+// ---------------------------------------------------------------- 模组基础能力
 
-export const THROW_BLADE = {
-  damageMult: 0.55,
-  speed: 620,
-  radius: 5,
-  life: 1.1,
-} as const;
-
-export const CHARGED_SLASH = {
-  /** 按住多久算蓄满 */
-  chargeTime: 0.5,
-  damageMult: 2.6,
-  rangeMult: 1.15,
-  /** 全向斩后的后摇 = atkCd × 这个数 */
-  recoverMult: 1.6,
+/**
+ * 开局选中的模组会立即把这些数值写进 Stats（见 modules.ts 的 applyModuleBase）。
+ * 这是「开局基础能力」，和后面 9 个专属强化是两回事——不选强化也一直生效。
+ */
+export const MODULES = {
+  blade: {
+    damageMult: 0.40,
+    speed: 620,
+    radius: 5,
+    life: 0.9,
+  },
+  dash: {
+    damageMult: 0.85,
+  },
+  charge: {
+    chargeTime: 0.60,
+    damageMult: 2.2,
+    rangeMult: 1.05,
+    recoverMult: 1.8,
+    moveSpeedMult: 0.72,
+  },
 } as const;
 
 // ---------------------------------------------------------------- 关卡
@@ -292,10 +316,25 @@ export const COSTS = {
 } as const;
 
 export const REWARDS = {
-  combatChoices: 2,
-  /** 精英房从不同原强化的未见进化分支中展示两张。 */
-  eliteChoices: 2,
-  shopSlots: 3,
+  /** 战斗房 3 选 1：2 模组专属 + 1 通用（未获得）。 */
+  combatChoices: 3,
+  /** 战斗房把其中一个基础位换成进化选项的概率（前提：存在可进化的已拥有强化）。 */
+  combatEvolutionChance: 0.35,
+  /** 精英房 3 选 1，至少这么多个是进化选项。 */
+  eliteChoices: 3,
+  eliteEvolutionMin: 2,
+  /** 商店 4 槽：专属基础 / 专属基础或进化 / 通用或通用进化 / 随机折扣。 */
+  shopSlots: 4,
+} as const;
+
+/** 商店/奖励里各档强化的基础价区间，见 DESIGN.md §2.3。 */
+export const PRICES = {
+  moduleBase: [12, 16] as const,
+  moduleEvo: [17, 22] as const,
+  universalBase: [10, 14] as const,
+  universalEvo: [15, 19] as const,
+  /** 商店第 4 槽「随机折扣强化」的折扣比例。 */
+  discountSlotMult: 0.75,
 } as const;
 
 /**
@@ -347,7 +386,7 @@ export const FEEL = {
   hitstopScale: 0.12,
   shakeDecay: 0.0005,
   shakeCutoff: 0.4,
-  /** 「时停」期间敌人与子弹的时间倍率 */
+  /** 通用减速倍率常数，供 Timeline 的「世界慢下来排期也跟着慢」测试使用。 */
   slowScale: 0.4,
   /** 房间清空 → 结算界面的过场延迟（这段时间照常计时） */
   roomClearDelay: 0.45,

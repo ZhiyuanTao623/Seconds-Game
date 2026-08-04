@@ -44,15 +44,15 @@ describe('报价 === 实扣', () => {
   });
 
   it('penMult 强化会同时影响价签和实扣', () => {
-    const withBlade = makeWorld(['blade']); // penMult ×1.4
+    const withBlade = makeWorld(['un_blade']); // penMult ×1.15
     const charger = spawnEnemy('charger', rng, 500, 300);
     expectMatch(withBlade, threatOf(charger), '利刃');
-    expect(withBlade.ledger.penalty).toBeCloseTo(2.0 * 1.4, 9);
+    expect(withBlade.ledger.penalty).toBeCloseTo(2.0 * 1.15, 9);
 
-    const withTough = makeWorld(['tough']); // penMult ×0.65
+    const withTough = makeWorld(['un_tough']); // penMult ×0.78
     const brute = spawnEnemy('brute', rng, 500, 300);
     expectMatch(withTough, threatOf(brute), '韧体');
-    expect(withTough.ledger.penalty).toBeCloseTo(4.0 * 0.65, 9);
+    expect(withTough.ledger.penalty).toBeCloseTo(4.0 * 0.78, 9);
   });
 
   it('连击税逐次累进，价签同步涨价', () => {
@@ -108,13 +108,13 @@ describe('报价 === 实扣', () => {
     const plain = makeWorld();
     expectMatch(plain, ENEMY.shooter.pen, '射手弹');
 
-    const w = makeWorld(['blade']);
+    const w = makeWorld(['un_blade']);
     w.player.inv = 0;
     expectMatch(w, BOSS.burst.pen, 'Boss 弹 · 利刃');
     w.player.inv = 0;
     expectMatch(w, BOSS.burst.pen, 'Boss 弹 · 利刃 + 连击税');
-    // 1 层税：2.5 × 1.4 × 1.3
-    expect(w.ledger.penalty).toBeCloseTo(2.5 * 1.4 + 2.5 * 1.4 * 1.3, 9);
+    // 1 层税：2.5 × 1.15 × 1.3
+    expect(w.ledger.penalty).toBeCloseTo(2.5 * 1.15 + 2.5 * 1.15 * 1.3, 9);
   });
 });
 

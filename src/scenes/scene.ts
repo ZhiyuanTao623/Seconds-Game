@@ -3,6 +3,7 @@ import type { Input } from '../core/input';
 import type { Overlay } from '../ui/overlay';
 import type { Run } from '../game/run';
 import type { Player } from '../game/player';
+import type { ModuleId } from '../game/modules';
 
 /**
  * 场景之间不互相 import —— 全部通过这几个跳转方法走 App，
@@ -15,7 +16,9 @@ export interface SceneContext {
   go(next: Scene): void;
   toMap(): void;
   toResult(): void;
-  startRun(seed: number): void;
+  /** seed 定；从标题页直接进模组选择页，模组选完才真正开局。 */
+  toModuleSelect(seed: number): void;
+  startRun(seed: number, module: ModuleId): void;
   toTitle(): void;
 }
 

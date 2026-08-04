@@ -69,7 +69,7 @@ describe('Timeline', () => {
 
 describe('Boss 三段震波', () => {
   const bossWorld = (seed: number) => {
-    const run = new Run(seed);
+    const run = new Run(seed, 'blade');
     return buildRoom(run, run.map.nodes.get(run.map.bossId)!);
   };
 

@@ -1,4 +1,4 @@
-import { CHARGED_SLASH, HIT, PLAYER, THROW_BLADE } from './config';
+import { HIT, MODULES, PLAYER } from './config';
 import { TAU, angleDiff, angleTo, dist, friction } from '../core/math';
 import type { Enemy } from './entities';
 import type { World } from './world';
@@ -24,8 +24,6 @@ export interface Player {
   hitstun: number;
   /** 本次僵直的总时长（判断「过半可冲刺取消」用） */
   hitstunTotal: number;
-  /** 反击窗口剩余（只有持「反击」强化时才会被设置） */
-  counter: number;
   /** 受击红闪剩余 */
   flash: number;
 
@@ -45,7 +43,7 @@ export function createPlayer(): Player {
     vx: 0, vy: 0, aim: -Math.PI / 2,
     atkCd: 0,
     dashCd: 0, dashT: 0, dashDir: 0, dashHits: new Set(),
-    inv: 0, hitstun: 0, hitstunTotal: 0, counter: 0, flash: 0,
+    inv: 0, hitstun: 0, hitstunTotal: 0, flash: 0,
     streak: 0, streakT: 0,
     charging: false, chargeT: 0,
   };
@@ -65,7 +63,6 @@ export function updatePlayer(world: World, input: InputSource, dt: number): void
   p.dashCd -= dt;
   p.atkCd -= dt;
   p.inv -= dt;
-  p.counter -= dt;
   p.flash -= dt;
   if (p.hitstun > 0) p.hitstun -= dt;
 
@@ -97,13 +94,12 @@ function updateDash(world: World, input: InputSource, dt: number): void {
     p.charging = false;
     p.chargeT = 0;
     world.fx.ring(p.x, p.y, 6, 34, '#88aaff', 0.22);
-    if (s.dashSlow > 0) world.applySlow(s.dashSlow);
   }
 
   if (p.dashT > 0) {
     p.dashT -= dt;
-    p.x += Math.cos(p.dashDir) * PLAYER.dashSpeed * dt;
-    p.y += Math.sin(p.dashDir) * PLAYER.dashSpeed * dt;
+    p.x += Math.cos(p.dashDir) * PLAYER.dashSpeed * s.dashSpeedMult * dt;
+    p.y += Math.sin(p.dashDir) * PLAYER.dashSpeed * s.dashSpeedMult * dt;
     if (s.dashDamage > 0) applyPhantomStrike(world, dt);
     if (p.dashT <= 0) p.dashHits.clear();
   }
@@ -116,7 +112,7 @@ function applyPhantomStrike(world: World, _dt: number): void {
     if (e.dead || p.dashHits.has(e)) continue;
     if (dist(p, e) > p.r + e.r) continue;
     p.dashHits.add(e);
-    world.damageEnemy(e, world.stats.dmg * world.stats.dashDamage);
+    world.damageEnemy(e, world.stats.dmg * world.stats.dashDamage, 'DASH');
     world.fx.ring(e.x, e.y, 4, e.r + 26, '#88aaff', 0.24);
     world.addHitstop(0.02);
   }
@@ -138,8 +134,10 @@ function updateMovement(world: World, input: InputSource, dt: number): void {
       const mag = Math.hypot(ix, iy);
       if (mag > 0) { ix /= mag; iy /= mag; }
     }
-    p.x += (ix * s.spd + p.vx) * dt;
-    p.y += (iy * s.spd + p.vy) * dt;
+    // 蓄势模组蓄力中移速打折 —— 判断安全窗口的代价
+    const spd = s.spd * (p.charging ? s.chargeMoveSpeedMult : 1);
+    p.x += (ix * spd + p.vx) * dt;
+    p.y += (iy * spd + p.vy) * dt;
   }
 
   const f = friction(PLAYER.selfFriction, dt);
@@ -186,7 +184,7 @@ function updateChargedAttack(world: World, input: InputSource, dt: number): void
   if (p.charging && input.isMouseDown('left')) p.chargeT += dt;
 
   if (p.charging && input.wasMouseReleased('left')) {
-    const full = p.chargeT >= CHARGED_SLASH.chargeTime;
+    const full = p.chargeT >= world.stats.chargeTime;
     p.charging = false;
     p.chargeT = 0;
     if (full) slash(world, true);
@@ -204,11 +202,11 @@ function slash(world: World, charged: boolean): void {
   const p = world.player;
   const s = world.stats;
 
-  const range = charged ? s.range * CHARGED_SLASH.rangeMult : s.range;
+  const range = charged ? s.range * s.chargeRangeMult : s.range;
   const arc = charged ? TAU : s.arc;
-  const damage = charged ? s.dmg * s.chargedDamageMult : s.dmg;
+  const damage = charged ? s.dmg * s.chargeDamageMult : s.dmg;
 
-  p.atkCd = charged ? s.atkCd * CHARGED_SLASH.recoverMult : s.atkCd;
+  p.atkCd = charged ? s.atkCd * s.chargeRecoverMult : s.atkCd;
 
   if (!charged) {
     // 普通挥砍带一点点前冲，让「够到」这件事有手感
@@ -226,21 +224,21 @@ function slash(world: World, charged: boolean): void {
     const toEnemy = angleTo(p, e);
     if (!charged && Math.abs(angleDiff(toEnemy, p.aim)) >= arc / 2) continue;
 
-    world.damageEnemy(e, damage);
+    world.damageEnemy(e, damage, charged ? 'CHARGE' : 'MELEE');
     e.knockback.x += Math.cos(toEnemy) * PLAYER.enemyKnockback;
     e.knockback.y += Math.sin(toEnemy) * PLAYER.enemyKnockback;
     world.addHitstop(0.03);
   }
 
-  // 掷刃只挂在普通挥砍上 —— 全向斩已经是 360°，再往一个方向丢一枚没有意义
+  // 飞刃只挂在普通挥砍上 —— 全向斩已经是 360°，再往一个方向丢一枚没有意义
   if (s.projectile && !charged) {
     world.bullets.push({
       x: p.x, y: p.y,
-      vx: Math.cos(p.aim) * THROW_BLADE.speed,
-      vy: Math.sin(p.aim) * THROW_BLADE.speed,
-      r: THROW_BLADE.radius,
+      vx: Math.cos(p.aim) * MODULES.blade.speed,
+      vy: Math.sin(p.aim) * MODULES.blade.speed,
+      r: MODULES.blade.radius,
       pen: 0,
-      life: THROW_BLADE.life,
+      life: MODULES.blade.life,
       dead: false,
       hostile: false,
       damage: s.dmg * s.projectileDamageMult,

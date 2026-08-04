@@ -1,20 +1,21 @@
 import type { RoomKind } from '../game/map';
+import type { ModuleId } from '../game/modules';
 
 export type Locale = 'zh' | 'en';
 
 export interface RoomText { label: string; hint: string }
 export interface UpgradeText { name: string; desc: string }
-export interface EvolutionText { desc: string }
+export interface EvolutionText { name: string; desc: string }
+export interface ModuleText { name: string; desc: string }
 
 /**
- * 13 个强化的 id 联合类型。这里是唯一真相源 —— upgrades.ts 里每个
+ * 强化 id 联合类型。这里是唯一真相源 —— upgrades.ts 里每个
  * `mkUpgrade({ id: ... })` 的 id 都必须落在这个联合里，拼错字会在编译期报错，
  * 而不是运行时显示一个 undefined 的名字。
+ *
+ * 目前只有 4 个通用强化；飞刃/掠影/蓄势各 3 个专属强化会在各自的里程碑加入。
  */
-export type UpgradeId =
-  | 'blade' | 'gale' | 'tough' | 'reach' | 'rapid'
-  | 'exec' | 'greed' | 'stasis' | 'riposte' | 'abacus'
-  | 'throw' | 'phantom' | 'charge';
+export type UpgradeId = 'un_gale' | 'un_blade' | 'un_tough' | 'un_abacus';
 
 /**
  * 全部界面文案的形状。
@@ -47,6 +48,15 @@ export interface Strings {
     start: string;
   };
 
+  moduleSelect: {
+    title: string;
+    body: string;
+    kind: string;
+    pick: string;
+  };
+
+  modules: Record<ModuleId, ModuleText>;
+
   map: {
     hint: string;
     mendToast: (cost: number, cut: string) => string;
@@ -71,8 +81,7 @@ export interface Strings {
     evolved: (name: string) => string;
   };
 
-  evolution: { numeric: string; costRemoval: string };
-  evolutions: Record<UpgradeId, { numeric: EvolutionText; costRemoval?: EvolutionText }>;
+  evolutions: Record<UpgradeId, { a: EvolutionText; b: EvolutionText }>;
 
   shop: {
     title: string;
@@ -82,6 +91,8 @@ export interface Strings {
     total: (total: string) => string;
     clockNote: string;
     leave: string;
+    /** 第 4 槽「随机折扣强化」价签前缀 */
+    discount: string;
     bought: (price: number, name: string) => string;
   };
 
@@ -136,6 +147,28 @@ const zh: Strings = {
     start: '开 始',
   },
 
+  moduleSelect: {
+    title: '选 择 模 组',
+    body: '本局不可更改。三个模组各自动了一条不同的操作前提。',
+    kind: '模组',
+    pick: '选择',
+  },
+
+  modules: {
+    blade: {
+      name: '飞刃',
+      desc: '每次挥砍同时向瞄准方向发射一枚飞刃（伤害 40%）。近战挥砍仍是主要输出，飞刃用来提前削血、追击射手、隔墙消耗。',
+    },
+    dash: {
+      name: '掠影',
+      desc: '冲刺穿过敌人时造成 85% 伤害，每次冲刺对同一敌人只结算一次。把原本纯防御的冲刺变成一份可以主动兑现的输出资源。',
+    },
+    charge: {
+      name: '蓄势',
+      desc: '左键改为蓄力键：按住 0.6 秒松开打出 220% 伤害的 360° 全向斩，蓄力中移速 -28%。重点不是等待，是判断安全窗口。',
+    },
+  },
+
   map: {
     hint: '选 择 路 线 —— 时 钟 正 在 走',
     mendToast: (cost, cut) => `花费 ${cost}s，消除了 ${cut}s 惩罚`,
@@ -143,11 +176,11 @@ const zh: Strings = {
   },
 
   rooms: {
-    combat: { label: '战斗房', hint: '常规敌人 · 清空后 2 选 1 免费强化' },
-    elite: { label: '精英房', hint: '更多更硬的敌人 · 清空后 3 选 1 免费强化' },
+    combat: { label: '战斗房', hint: '常规敌人 · 清空后 3 选 1 免费强化' },
+    elite: { label: '精英房', hint: '更多更硬的敌人 · 清空后 3 选 1，稳定拿到进化' },
     shop: { label: '秒 · 商店', hint: '用秒数直接买强化 · 逛店期间时钟在走' },
     mend: { label: '时间修复站', hint: '花秒数抹掉一部分已累计的受击惩罚' },
-    shortcut: { label: '捷径门', hint: '花秒数跳过一整层 · 少打一场，也少拿一个强化' },
+    shortcut: { label: '捷径门', hint: '花秒数跳过一整层 · 少打一场，也少拿一次奖励' },
     boss: { label: 'BOSS', hint: '最终节点' },
   },
 
@@ -160,28 +193,30 @@ const zh: Strings = {
     clockNote: '时钟还在走。',
     free: '免费 · 已用战斗时间支付',
     got: (name) => `获得 ${name}`,
-    eliteKind: '精英进化',
+    eliteKind: '进化',
     eliteCleared: '精英已击破',
-    eliteBody: '展示过的分支将永久离开本局奖励池 —— 选一个强化你的构筑。',
+    eliteBody: '选一个强化你的构筑；另一条分支不会因此消失，但选定之后这个强化就完成进化了。',
     total: '当前总计',
     evolved: (name) => `进化 ${name}`,
   },
 
-  evolution: { numeric: '锋锐', costRemoval: '卸重' },
   evolutions: {
-    blade: { numeric: { desc: '总伤害提升至 200%。' }, costRemoval: { desc: '移除「受击时间惩罚 +40%」。' } },
-    gale: { numeric: { desc: '总移速提升至 +30%，冲刺冷却缩短至 -48%。' } },
-    tough: { numeric: { desc: '受击时间惩罚降低至 -50%。' }, costRemoval: { desc: '移除「伤害 -15%」。' } },
-    reach: { numeric: { desc: '总攻击范围提升至 +80%，挥砍角度进一步增大。' } },
-    rapid: { numeric: { desc: '攻击间隔缩短至原本的 45%。' }, costRemoval: { desc: '移除「单次伤害 -10%」。' } },
-    exec: { numeric: { desc: '处决阈值提升至 45%（仍不作用于 Boss）。' } },
-    greed: { numeric: { desc: '后续秒数消费降低至原价的 45%（最低仍为 3s）。' } },
-    stasis: { numeric: { desc: '冲刺时的全场减速持续提升至 0.85 秒。' } },
-    riposte: { numeric: { desc: '反击窗口内伤害提升至 +140%。' } },
-    abacus: { numeric: { desc: '每击杀一名非 Boss 敌人返还 1.0 秒。' } },
-    throw: { numeric: { desc: '飞刃伤害提升至本次挥砍的 85%。' } },
-    phantom: { numeric: { desc: '冲刺穿敌伤害提升至 180%。' } },
-    charge: { numeric: { desc: '满蓄全向斩伤害提升至 340%。' } },
+    un_gale: {
+      a: { name: '迅捷', desc: '总移速提升至 +22%，冲刺距离额外 +12%。' },
+      b: { name: '轻步', desc: '移速维持 +12%，冲刺冷却总缩短至 -32%，冲刺距离 -8%。' },
+    },
+    un_blade: {
+      a: { name: '孤注', desc: '总伤害提升至 +52%，受击时间惩罚提升至 +40%。' },
+      b: { name: '稳刃', desc: '总伤害提升至 +34%，移除受击时间惩罚的增加。' },
+    },
+    un_tough: {
+      a: { name: '铁壁', desc: '受击时间惩罚降至 -42%，伤害降至 -16%。' },
+      b: { name: '适应', desc: '受击时间惩罚维持 -22%，连击税窗口从 5.0s 缩短到 3.2s。' },
+    },
+    un_abacus: {
+      a: { name: '薄利多销', desc: '所有非 Boss 击杀统一返还 0.45s（重甲/医疗兵不再额外加成）。' },
+      b: { name: '高额结算', desc: '普通敌人仍返还 0.25s，重甲/医疗兵返还 0.75s，精英房清空额外返还 1.0s。' },
+    },
   },
 
   shop: {
@@ -191,6 +226,7 @@ const zh: Strings = {
     total: (total) => `当前总计 ${total} ·`,
     clockNote: '逛店也在计时',
     leave: '离 开 商 店',
+    discount: '折扣',
     bought: (price, name) => `花费 ${price}s 购入 ${name}`,
   },
 
@@ -219,28 +255,10 @@ const zh: Strings = {
   },
 
   upgrades: {
-    blade: { name: '利刃', desc: '伤害 +60%，但受击时间惩罚 +40%。' },
-    gale: { name: '疾风', desc: '移速 +16%，冲刺冷却 -35%。' },
-    tough: { name: '韧体', desc: '受击时间惩罚 -35%，但伤害 -15%。' },
-    reach: { name: '长刃', desc: '攻击范围 +45%，挥砍弧度略增。' },
-    rapid: { name: '连斩', desc: '攻击速度 +40%，单次伤害 -10%。' },
-    exec: { name: '处决', desc: '敌人生命低于 30% 时被斩击立即斩杀。' },
-    greed: { name: '贪婪', desc: '此后所有秒数消费 -35%。' },
-    stasis: { name: '时停', desc: '冲刺时全场减速 60%，持续 0.55 秒。' },
-    riposte: { name: '反击', desc: '受击后 2 秒内伤害 +85%。' },
-    abacus: { name: '精算', desc: '每击杀一个敌人返还 0.5 秒。' },
-    throw: {
-      name: '掷刃',
-      desc: '每次挥砍额外向光标方向掷出一枚刃弹（伤害 55%）。<b>你不再必须贴身才有输出。</b>',
-    },
-    phantom: {
-      name: '掠影',
-      desc: '冲刺穿过敌人时造成 120% 伤害，每次冲刺对同一敌人只结算一次。<b>冲刺不再只是逃跑键。</b>',
-    },
-    charge: {
-      name: '蓄力',
-      desc: '按住左键 0.5 秒蓄力，松开打出 260% 伤害的 360° 全向斩。<b>代价：按住不再自动连砍。</b>',
-    },
+    un_gale: { name: '疾风', desc: '移速 +12%，冲刺冷却 -12%。' },
+    un_blade: { name: '利刃', desc: '伤害 +22%，受击时间惩罚 +15%。' },
+    un_tough: { name: '韧体', desc: '受击时间惩罚 -22%，伤害 -6%。' },
+    un_abacus: { name: '精算', desc: '每击杀一个非 Boss 敌人返还 0.25s。' },
   },
 };
 
@@ -268,6 +286,28 @@ const en: Strings = {
     start: 'S T A R T',
   },
 
+  moduleSelect: {
+    title: 'Choose a Module',
+    body: 'This choice is locked in for the run. Each module rewrites a different core action.',
+    kind: 'Module',
+    pick: 'Pick',
+  },
+
+  modules: {
+    blade: {
+      name: 'Bladecast',
+      desc: 'Every slash also throws a blade toward your cursor (40% damage). Melee is still your main damage — the blade chips in, chases shooters, and reaches through walls of enemies.',
+    },
+    dash: {
+      name: 'Afterimage',
+      desc: 'Dashing through an enemy deals 85% damage, once per enemy per dash. Turns the dash from a pure escape button into something you can cash in for damage.',
+    },
+    charge: {
+      name: 'Overcharge',
+      desc: 'LMB becomes a charge button: hold 0.6s and release for a 220% damage 360° slash; move speed -28% while charging. The skill is reading the safe window, not just holding the button.',
+    },
+  },
+
   map: {
     hint: 'Choose a route — the clock is running',
     mendToast: (cost, cut) => `Spent ${cost}s, cleared ${cut}s of penalty`,
@@ -275,11 +315,11 @@ const en: Strings = {
   },
 
   rooms: {
-    combat: { label: 'Combat', hint: 'Regular enemies · clear it for a free pick from 2 upgrades' },
-    elite: { label: 'Elite', hint: 'More, tougher enemies · clear it for a free pick from 3 upgrades' },
+    combat: { label: 'Combat', hint: 'Regular enemies · clear it for a free pick from 3 upgrades' },
+    elite: { label: 'Elite', hint: 'More, tougher enemies · clear it for a free pick from 3, weighted toward evolutions' },
     shop: { label: 'Shop', hint: 'Spend seconds on upgrades directly · the clock runs while you browse' },
     mend: { label: 'Time Mend', hint: 'Spend seconds to wipe part of your accumulated hit penalty' },
-    shortcut: { label: 'Shortcut', hint: 'Spend seconds to skip a whole floor · one less fight, one less upgrade' },
+    shortcut: { label: 'Shortcut', hint: 'Spend seconds to skip a whole floor · one less fight, one less reward' },
     boss: { label: 'BOSS', hint: 'Final floor' },
   },
 
@@ -292,28 +332,30 @@ const en: Strings = {
     clockNote: 'The clock is still running.',
     free: 'Free · paid with combat time',
     got: (name) => `Got ${name}`,
-    eliteKind: 'Elite Evolution',
+    eliteKind: 'Evolution',
     eliteCleared: 'Elite Defeated',
-    eliteBody: 'Revealed branches leave this run forever — choose one to deepen your build.',
+    eliteBody: "Pick one to deepen your build. The branch you don't pick doesn't vanish on its own — but once you choose, this upgrade is done evolving.",
     total: 'Current total',
     evolved: (name) => `Evolved ${name}`,
   },
 
-  evolution: { numeric: 'Sharpened', costRemoval: 'Unburdened' },
   evolutions: {
-    blade: { numeric: { desc: 'Total damage becomes 200%.' }, costRemoval: { desc: 'Remove the +40% hit-penalty drawback.' } },
-    gale: { numeric: { desc: 'Total move speed becomes +30%; dash cooldown becomes -48%.' } },
-    tough: { numeric: { desc: 'Hit penalty becomes -50%.' }, costRemoval: { desc: 'Remove the -15% damage drawback.' } },
-    reach: { numeric: { desc: 'Total attack range becomes +80%, with a wider slash arc.' } },
-    rapid: { numeric: { desc: 'Attack interval becomes 45% of base.' }, costRemoval: { desc: 'Remove the -10% damage-per-hit drawback.' } },
-    exec: { numeric: { desc: 'Execution threshold becomes 45% (still excludes the Boss).' } },
-    greed: { numeric: { desc: 'Future second-spending becomes 45% of base price (minimum remains 3s).' } },
-    stasis: { numeric: { desc: 'Dash slow lasts 0.85 seconds.' } },
-    riposte: { numeric: { desc: 'Damage in the riposte window becomes +140%.' } },
-    abacus: { numeric: { desc: 'Refund 1.0 second per non-Boss kill.' } },
-    throw: { numeric: { desc: 'Thrown blades deal 85% of the slash damage.' } },
-    phantom: { numeric: { desc: 'Dash-through damage becomes 180%.' } },
-    charge: { numeric: { desc: 'A full charged slash deals 340% damage.' } },
+    un_gale: {
+      a: { name: 'Fleetfoot', desc: 'Total move speed becomes +22%; dash distance gets an extra +12%.' },
+      b: { name: 'Featherstep', desc: 'Move speed stays +12%; dash cooldown becomes -32% total; dash distance -8%.' },
+    },
+    un_blade: {
+      a: { name: 'All In', desc: 'Total damage becomes +52%; hit penalty becomes +40%.' },
+      b: { name: 'Steady Edge', desc: 'Total damage becomes +34%; removes the hit-penalty increase entirely.' },
+    },
+    un_tough: {
+      a: { name: 'Bulwark', desc: 'Hit penalty drops to -42%; damage drops to -16%.' },
+      b: { name: 'Adapt', desc: 'Hit penalty stays -22%; combo tax window shortens from 5.0s to 3.2s.' },
+    },
+    un_abacus: {
+      a: { name: 'Volume Discount', desc: 'Every non-Boss kill refunds a flat 0.45s (brutes/medics lose their extra bonus).' },
+      b: { name: 'Premium Settlement', desc: 'Regular kills still refund 0.25s; brutes/medics refund 0.75s; clearing an Elite room refunds an extra 1.0s.' },
+    },
   },
 
   shop: {
@@ -323,6 +365,7 @@ const en: Strings = {
     total: (total) => `Current total ${total} ·`,
     clockNote: 'the clock runs while you browse',
     leave: 'Leave Shop',
+    discount: 'Discount',
     bought: (price, name) => `Spent ${price}s on ${name}`,
   },
 
@@ -351,28 +394,10 @@ const en: Strings = {
   },
 
   upgrades: {
-    blade: { name: 'Blade', desc: 'Damage +60%, but hit penalty +40%.' },
-    gale: { name: 'Gale', desc: 'Move speed +16%, dash cooldown -35%.' },
-    tough: { name: 'Grit', desc: 'Hit penalty -35%, but damage -15%.' },
-    reach: { name: 'Long Blade', desc: 'Attack range +45%, slash arc slightly wider.' },
-    rapid: { name: 'Flurry', desc: 'Attack speed +40%, damage per hit -10%.' },
-    exec: { name: 'Execute', desc: 'Enemies below 30% HP are instantly killed by a slash.' },
-    greed: { name: 'Greed', desc: 'All future second-spending is -35%.' },
-    stasis: { name: 'Stasis', desc: 'Dashing slows the whole battlefield 60% for 0.55s.' },
-    riposte: { name: 'Riposte', desc: 'Damage +85% for 2s after getting hit.' },
-    abacus: { name: 'Abacus', desc: 'Refund 0.5s for every enemy killed.' },
-    throw: {
-      name: 'Throwing Blade',
-      desc: 'Every slash also throws a blade toward your cursor (55% damage). <b>You no longer have to be in melee range to deal damage.</b>',
-    },
-    phantom: {
-      name: 'Afterimage',
-      desc: 'Dashing through an enemy deals 120% damage, once per enemy per dash. <b>Dash is no longer just an escape button.</b>',
-    },
-    charge: {
-      name: 'Charge Slash',
-      desc: 'Hold LMB for 0.5s to charge, release for a 260% damage 360° slash. <b>Cost: holding LMB no longer auto-attacks.</b>',
-    },
+    un_gale: { name: 'Gale', desc: 'Move speed +12%, dash cooldown -12%.' },
+    un_blade: { name: 'Blade', desc: 'Damage +22%, hit penalty +15%.' },
+    un_tough: { name: 'Grit', desc: 'Hit penalty -22%, damage -6%.' },
+    un_abacus: { name: 'Abacus', desc: 'Refund 0.25s for every non-Boss kill.' },
   },
 };
 

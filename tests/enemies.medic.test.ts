@@ -135,7 +135,7 @@ describe('医疗兵：房间生成', () => {
 
   it('floor >= 2 的战斗房带医疗兵，floor 1 的战斗房不带', () => {
     for (const seed of seeds) {
-      const run = new Run(seed);
+      const run = new Run(seed, 'blade');
       for (const node of run.map.nodes.values()) {
         if (node.kind !== 'combat') continue;
         const world = buildRoom(run, node);
@@ -151,7 +151,7 @@ describe('医疗兵：房间生成', () => {
 
   it('精英房永远带至少一个医疗兵', () => {
     for (const seed of seeds) {
-      const run = new Run(seed);
+      const run = new Run(seed, 'blade');
       for (const node of run.map.nodes.values()) {
         if (node.kind !== 'elite') continue;
         const world = buildRoom(run, node);
@@ -161,7 +161,7 @@ describe('医疗兵：房间生成', () => {
   });
 
   it('Boss 房不带医疗兵（Boss 房只有 Boss 自己）', () => {
-    const run = new Run(1);
+    const run = new Run(1, 'blade');
     const bossNode = run.map.nodes.get(run.map.bossId)!;
     const world = buildRoom(run, bossNode);
     expect(world.enemies.map((e) => e.kind)).toEqual(['boss']);

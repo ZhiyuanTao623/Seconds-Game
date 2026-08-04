@@ -9,7 +9,7 @@ import { updateEnemy } from './enemies';
 import type { PriceContext } from './pricing';
 import type { Player } from './player';
 import type { Stats } from './config';
-import type { Bullet, Enemy } from './entities';
+import type { Bullet, DamageTag, Enemy } from './entities';
 import type { Ledger } from './ledger';
 import type { RngStream } from '../core/rng';
 import type { InputSource } from '../core/input';
@@ -32,7 +32,6 @@ export class World {
 
   shake = 0;
   private hitstop = 0;
-  private slow = 0;
   /** 上一步世界时间相对真实时间的比例（顿帧时 < 1，其余为 1）。账本按它打折走表。 */
   private _timeScale = 1;
 
@@ -72,7 +71,7 @@ export class World {
     this.ledger.addPenalty(sec);
 
     p.streak += 1;
-    p.streakT = HIT.taxWindow;
+    p.streakT = this.stats.taxWindow;
     p.inv = HIT.invTime;
 
     // 围殴护栏：被围到第 3 下起僵直减半，否则冲刺一进冷却就再也挣不脱
@@ -81,9 +80,6 @@ export class World {
     p.flash = HIT.flash;
     p.charging = false;
     p.chargeT = 0;
-
-    // 反击窗口只有持有「反击」强化时才存在
-    if (this.stats.counterDmg > 0) p.counter = HIT.riposteWindow;
 
     this.addShake(HIT.shake);
     this.addHitstop(HIT.hitstop);
@@ -96,22 +92,24 @@ export class World {
     p.vy += Math.sin(away) * PLAYER.selfKnockback;
   }
 
-  damageEnemy(e: Enemy, damage: number): void {
+  damageEnemy(e: Enemy, damage: number, tag: DamageTag = 'MELEE'): void {
     let d = damage;
-    if (this.stats.counterDmg > 0 && this.player.counter > 0) d *= 1 + this.stats.counterDmg;
     if (e.kind === 'boss' && e.vulnerable > 0) d *= BOSS.phaseTwo.weakPointDamageMult;
 
     e.hp -= d;
     e.flash = 0.12;
+    e.lastHitTag = tag;
 
-    if (this.stats.exec > 0 && e.kind !== 'boss' && e.hp / e.maxHp < this.stats.exec) e.hp = 0;
     if (e.hp > 0 || e.dead) return;
 
     e.dead = true;
     this.fx.ring(e.x, e.y, e.r, e.r + 46, '#fff', 0.3);
-    if (this.stats.refund > 0 && e.kind !== 'boss') {
-      this.ledger.addRefund(this.stats.refund);
-      this.fx.float(e.x, e.y - 20, `-${formatSeconds(this.stats.refund)}s`, '#8fe388', 20);
+    if (e.kind !== 'boss') {
+      const refund = e.kind === 'brute' || e.kind === 'medic' ? this.stats.refundElite : this.stats.refundNormal;
+      if (refund > 0) {
+        this.ledger.addRefund(refund);
+        this.fx.float(e.x, e.y - 20, `-${formatSeconds(refund)}s`, '#8fe388', 20);
+      }
     }
   }
 
@@ -119,7 +117,6 @@ export class World {
 
   addShake(v: number): void { this.shake = Math.max(this.shake, v); }
   addHitstop(v: number): void { this.hitstop = Math.max(this.hitstop, v); }
-  applySlow(duration: number): void { this.slow = Math.max(this.slow, duration); }
 
   // ---------------------------------------------------------------- 主循环
 
@@ -133,7 +130,6 @@ export class World {
    *
    * `dt` 是真实经过的时间。顿帧期间世界按 hitstopScale 放慢，
    * 账本也按同一比例走表（见 timeScale）——世界停住的那一瞬不计入成绩。
-   * 「时停」只放慢敌人，玩家照常操作，所以不影响 timeScale。
    */
   step(dt: number, input: InputSource): void {
     let worldDt = dt;
@@ -144,24 +140,18 @@ export class World {
       this._timeScale = FEEL.hitstopScale;
     }
 
-    let enemyDt = worldDt;
-    if (this.slow > 0) {
-      this.slow -= worldDt;
-      enemyDt = worldDt * FEEL.slowScale;
-    }
-
     updatePlayer(this, input, worldDt);
 
     for (const e of this.enemies) {
       if (e.dead) continue;
-      updateEnemyCommon(e, enemyDt);
-      updateEnemy(this, e, enemyDt);
+      updateEnemyCommon(e, worldDt);
+      updateEnemy(this, e, worldDt);
       if (e.kind === 'boss') this.arena.clampToBounds(e);
       else this.arena.collide(e);
     }
 
-    this.updateBullets(enemyDt);
-    this.timeline.advance(enemyDt);
+    this.updateBullets(worldDt);
+    this.timeline.advance(worldDt);
     this.fx.update(worldDt);
 
     this.enemies = this.enemies.filter((e) => !e.dead);
@@ -195,7 +185,7 @@ export class World {
         // 玩家的刃弹：命中一个敌人即消失
         for (const e of this.enemies) {
           if (e.dead || dist(e, b) >= e.r + b.r) continue;
-          this.damageEnemy(e, b.damage);
+          this.damageEnemy(e, b.damage, 'BLADE');
           this.fx.ring(b.x, b.y, 2, 18, '#fff', 0.18);
           b.dead = true;
           break;

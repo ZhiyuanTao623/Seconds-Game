@@ -31,8 +31,8 @@ describe('Seed 可复现', () => {
   });
 
   it('房间内容按节点独立派生 —— 玩家在别处做了什么都不影响它', () => {
-    const a = new Run(555);
-    const b = new Run(555);
+    const a = new Run(555, 'blade');
+    const b = new Run(555, 'blade');
     const node = a.map.byFloor[0]![0]!;
 
     // b 先在别的地方消耗一堆随机，再建同一个房间
@@ -178,7 +178,7 @@ describe('布局白名单', () => {
     const EMPTY_LAYOUT_WALLS = 0;
 
     for (const seed of SEEDS) {
-      const run = new Run(seed);
+      const run = new Run(seed, 'blade');
       for (const node of run.map.nodes.values()) {
         if (node.kind === 'shop' || node.kind === 'mend' || node.kind === 'shortcut') continue;
         const world = buildRoom(run, node);

@@ -27,7 +27,7 @@ export class TitleScene implements Scene {
     `);
 
     const input = document.getElementById('seed') as HTMLInputElement | null;
-    const start = (): void => this.ctx.startRun(
+    const start = (): void => this.ctx.toModuleSelect(
       input && input.value.trim() !== '' ? normalizeSeed(input.value) : randomSeed(),
     );
 

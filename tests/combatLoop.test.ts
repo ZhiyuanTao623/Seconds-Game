@@ -3,10 +3,11 @@ import { FIXED_STEP } from '../src/game/config';
 import { Ledger } from '../src/game/ledger';
 import { Run } from '../src/game/run';
 import { buildRoom } from '../src/game/room';
-import { computeStats, upgradeById } from '../src/game/upgrades';
+import { upgradeById } from '../src/game/upgrades';
 import { assertChargeMatchesLabel, recordCharges } from './helpers';
 import type { InputSource } from '../src/core/input';
 import type { MapNode } from '../src/game/map';
+import type { ModuleId } from '../src/game/modules';
 import type { World } from '../src/game/world';
 
 /**
@@ -73,10 +74,15 @@ function simulate(world: World, steps: number, rand: () => number): void {
 
 const firstNode = (run: Run): MapNode => run.map.byFloor[0]![0]!;
 
+/** 三个模组基础能力（刃弹/掠影穿刺/蓄力斩）轮流覆盖到，而不用把每个 seed 都跑三遍。 */
+const MODULES: readonly ModuleId[] = ['blade', 'dash', 'charge'];
+
 describe('真实循环 fuzz：每一笔扣款都等于当时的价签', () => {
-  for (const seed of [1, 42, 777, 20260802, 999983]) {
-    it(`seed ${seed} · 跑遍这张地图上的每一个战斗房`, () => {
-      const run = new Run(seed);
+  const seeds = [1, 42, 777, 20260802, 999983];
+  seeds.forEach((seed, i) => {
+    const module = MODULES[i % MODULES.length]!;
+    it(`seed ${seed} · ${module} 模组 · 跑遍这张地图上的每一个战斗房`, () => {
+      const run = new Run(seed, module);
       const rand = testRng(seed);
       let totalCharges = 0;
 
@@ -101,11 +107,11 @@ describe('真实循环 fuzz：每一笔扣款都等于当时的价签', () => {
       // fuzz 一次都没挨打的话，这个测试其实什么都没验证
       expect(totalCharges, 'fuzz 强度不够：整局一次都没被收钱').toBeGreaterThan(0);
     });
-  }
+  });
 
-  it('拿满强化（含掷刃/掠影/蓄力）也不会让报价和实扣走岔', () => {
-    const run = new Run(31337);
-    for (const id of ['blade', 'greed', 'stasis', 'riposte', 'abacus', 'throw', 'phantom', 'charge']) {
+  it('拿满全部通用强化也不会让报价和实扣走岔', () => {
+    const run = new Run(31337, 'blade');
+    for (const id of ['un_gale', 'un_blade', 'un_tough', 'un_abacus']) {
       const u = upgradeById(id);
       if (u) run.takeUpgrade(u);
     }
@@ -124,7 +130,7 @@ describe('真实循环 fuzz：每一笔扣款都等于当时的价签', () => {
 
 describe('无敌与僵直', () => {
   const world = (seed: number): World => {
-    const run = new Run(seed);
+    const run = new Run(seed, 'blade');
     return buildRoom(run, firstNode(run));
   };
 
@@ -154,23 +160,6 @@ describe('无敌与僵直', () => {
     expect(stuns[3]).toBeCloseTo(stuns[0]! / 2, 9);
   });
 
-  it('没有「反击」强化时，受击不产生反击窗口', () => {
-    const w = world(14);
-    w.hitPlayer(2);
-    expect(w.player.counter).toBeLessThanOrEqual(0);
-    expect(computeStats([]).counterDmg).toBe(0);
-  });
-
-  it('有「反击」强化时才开窗口', () => {
-    const riposte = upgradeById('riposte');
-    expect(riposte).toBeDefined();
-
-    const run = new Run(15);
-    run.takeUpgrade(riposte!);
-    const w = buildRoom(run, firstNode(run));
-    w.hitPlayer(2);
-    expect(w.player.counter).toBeGreaterThan(0);
-  });
 });
 
 describe('账本', () => {

@@ -27,7 +27,7 @@ const nullInput = {
 };
 
 function makeCombatScene(): { scene: CombatScene; world: World } {
-  const run = new Run(42);
+  const run = new Run(42, 'blade');
   const node = run.map.byFloor[0]![0]!;
   const ctx = {
     input: nullInput,

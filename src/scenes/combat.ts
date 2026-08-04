@@ -1,4 +1,4 @@
-import { FEEL, REWARDS } from '../game/config';
+import { FEEL } from '../game/config';
 import { buildRoom } from '../game/room';
 import { drawWorld } from '../render/drawWorld';
 import { t } from '../i18n/i18n';
@@ -43,7 +43,13 @@ export class CombatScene implements Scene {
     this.world.step(dt, this.ctx.input);
 
     if (this.clearTimer < 0) {
-      if (this.world.cleared) this.clearTimer = FEEL.roomClearDelay;
+      if (this.world.cleared) {
+        this.clearTimer = FEEL.roomClearDelay;
+        // 高额结算（精算 B 分支）：精英房清空时一次性额外返还，只在这一刻结算一次
+        if (this.node.kind === 'elite' && this.world.stats.refundEliteClear > 0) {
+          this.ctx.run.ledger.addRefund(this.world.stats.refundEliteClear);
+        }
+      }
       return;
     }
 
@@ -72,7 +78,6 @@ export class CombatScene implements Scene {
       return;
     }
 
-    const choices = this.node.kind === 'elite' ? REWARDS.eliteChoices : REWARDS.combatChoices;
-    this.ctx.go(new RewardScene(this.ctx, this.node, choices));
+    this.ctx.go(new RewardScene(this.ctx, this.node));
   }
 }
