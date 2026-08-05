@@ -9,6 +9,7 @@ import { updateEnemy } from './enemies';
 import type { PriceContext } from './pricing';
 import type { Player } from './player';
 import type { Stats } from './config';
+import { createDamageTally } from './entities';
 import type { Bullet, DamageTag, Enemy } from './entities';
 import type { Ledger } from './ledger';
 import type { RngStream } from '../core/rng';
@@ -29,6 +30,9 @@ export class World {
 
   enemies: Enemy[] = [];
   bullets: Bullet[] = [];
+
+  /** 这个房间里，按标签分类实际打出去的伤害。房间结束时会并进 Run 的总账。 */
+  readonly damageByTag = createDamageTally();
 
   shake = 0;
   private hitstop = 0;
@@ -119,6 +123,7 @@ export class World {
     e.hp -= d + markBonus;
     e.flash = 0.12;
     e.lastHitTag = tag;
+    this.damageByTag[tag] += d + markBonus;
 
     if (e.hp > 0 || e.dead) {
       if (tag === 'BLADE' && s.markMax > 0 && !e.dead) this.applyMark(e);

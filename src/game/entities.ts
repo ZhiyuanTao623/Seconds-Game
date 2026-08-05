@@ -9,6 +9,11 @@ export type EnemyKind = 'charger' | 'shooter' | 'brute' | 'medic' | 'boss';
  */
 export type DamageTag = 'MELEE' | 'BLADE' | 'DASH' | 'CHARGE' | 'EXPLOSION' | 'AFTEREFFECT';
 
+/** 一份按标签清零的伤害统计。结算页的「模组伤害占比」就是拿这个算的。 */
+export function createDamageTally(): Record<DamageTag, number> {
+  return { MELEE: 0, BLADE: 0, DASH: 0, CHARGE: 0, EXPLOSION: 0, AFTEREFFECT: 0 };
+}
+
 /** 敌人状态机的状态名。各类型共用这套词汇，但含义由各自的行为文件解释。 */
 export type EnemyState =
   | 'idle' | 'telegraph' | 'attack' | 'recover'

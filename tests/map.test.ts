@@ -92,6 +92,69 @@ describe('地图结构约束', () => {
     }
   });
 
+  it('至少有一条路线连续经过 2 个精英房（DESIGN.md v3 §9.1）', () => {
+    for (const seed of SEEDS) {
+      const map = mapFor(seed);
+      const hasConsecutive = [...map.nodes.values()].some(
+        (n) => n.kind === 'elite' && n.next.some((id) => map.nodes.get(id)?.kind === 'elite'),
+      );
+      expect(hasConsecutive, `seed ${seed} 没有连续两个精英房的路线`).toBe(true);
+    }
+  });
+
+  it('所有完整路线都能到达至少 1 个精英房——不存在完全绕开精英的路线（DESIGN.md v3 §9.1）', () => {
+    for (const seed of SEEDS) {
+      const map = mapFor(seed);
+      // 从入口出发、绝不踏进精英房，看最远能不能摸到 Boss
+      const visited = new Set<string>();
+      const stack = [...map.entries];
+      while (stack.length > 0) {
+        const id = stack.pop()!;
+        if (visited.has(id)) continue;
+        const n = map.nodes.get(id);
+        if (!n || n.kind === 'elite') continue;
+        visited.add(id);
+        stack.push(...n.next);
+      }
+      expect(visited.has(map.bossId), `seed ${seed} 存在完全避开精英房也能到 Boss 的路线`).toBe(false);
+    }
+  });
+
+  it('精英路线两条约束、孤儿节点、保底商店在大范围 seed 上都成立（覆盖修复逻辑碰到的各种拓扑）', () => {
+    // 这条测试是在开发期间用来大范围试跑、逐一揪出修复逻辑边界情况的产物——
+    // 过程中先后抓到三个真实 bug：①按「整层转换」堵精英路线，堵不住借道捷径
+    // 绕过去的路线；②只在「单独一条代表路线」上找可转换节点，找错代表路线时
+    // 会误判成无解；③两个捷径门重定向后可能同时跳离同一个子节点，如果那正好
+    // 是它唯一的两个父节点，它会变成谁都进不去的孤儿房间（这是继承自 v2 就
+    // 存在的老 bug，不是这次新加的）。20000 个 seed 的验证见开发过程记录，
+    // 这里留 2000 个作为长期回归门槛，兼顾覆盖面和测试跑起来的速度。
+    for (let seed = 0; seed < 2000; seed++) {
+      const map = mapFor(seed);
+
+      const hasConsecutive = [...map.nodes.values()].some(
+        (n) => n.kind === 'elite' && n.next.some((id) => map.nodes.get(id)?.kind === 'elite'),
+      );
+      expect(hasConsecutive, `seed ${seed} 没有连续两个精英房的路线`).toBe(true);
+
+      const visited = new Set<string>();
+      const stack = [...map.entries];
+      while (stack.length > 0) {
+        const id = stack.pop()!;
+        if (visited.has(id)) continue;
+        const n = map.nodes.get(id);
+        if (!n || n.kind === 'elite') continue;
+        visited.add(id);
+        stack.push(...n.next);
+      }
+      expect(visited.has(map.bossId), `seed ${seed} 存在完全避开精英房也能到 Boss 的路线`).toBe(false);
+
+      for (const n of map.nodes.values()) {
+        if (n.floor === 1) continue;
+        expect(n.prev.length, `seed ${seed} 节点 ${n.id} 是孤儿，没有任何父节点`).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it('沿同一条路径，商店和修复站不连着来两次', () => {
     for (const seed of SEEDS) {
       const map = mapFor(seed);

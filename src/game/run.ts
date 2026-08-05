@@ -3,14 +3,23 @@ import { Ledger } from './ledger';
 import { generateMap } from './map';
 import { computeStats } from './upgrades';
 import { offerBaseCost } from './rewards';
+import { createDamageTally } from './entities';
 import { t } from '../i18n/i18n';
 import { RngStream } from '../core/rng';
 import type { MapNode, RunMap } from './map';
 import type { Stats } from './config';
+import type { DamageTag } from './entities';
 import type { ModuleId } from './modules';
 import type { Evolution, EvolutionBranch, Upgrade } from './upgrades';
 import type { Offer } from './rewards';
 import type { UpgradeId } from '../i18n/i18n';
+
+/** 模组自己的核心机制打出的伤害走哪个标签——结算页「模组伤害占比」用这个映射。 */
+export const MODULE_DAMAGE_TAG: Record<ModuleId, DamageTag> = {
+  blade: 'BLADE',
+  dash: 'DASH',
+  charge: 'CHARGE',
+};
 
 /**
  * 一局游戏的全部状态。
@@ -45,6 +54,9 @@ export class Run {
   available: string[];
   won = false;
 
+  /** 整局按标签累计的伤害（结算页用）。每个房间结束时由 `CombatScene` 并进来。 */
+  readonly damageByTag = createDamageTally();
+
   constructor(seed: number, module: ModuleId) {
     this.seed = seed >>> 0;
     this.module = module;
@@ -69,6 +81,11 @@ export class Run {
   /** 房间结束，摊开下一批可选节点。 */
   advance(from: MapNode): void {
     this.available = from.next.filter((id) => this.map.nodes.has(id));
+  }
+
+  /** 房间结束时，把这个房间的伤害并进整局的总账。 */
+  mergeDamageByTag(tally: Readonly<Record<DamageTag, number>>): void {
+    for (const key of Object.keys(tally) as DamageTag[]) this.damageByTag[key] += tally[key];
   }
 
   takeUpgrade(u: Upgrade): void {

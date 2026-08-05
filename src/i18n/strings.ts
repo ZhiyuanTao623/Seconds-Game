@@ -1,5 +1,6 @@
 import type { RoomKind } from '../game/map';
 import type { ModuleId } from '../game/modules';
+import type { DamageTag } from '../game/entities';
 
 export type Locale = 'zh' | 'en';
 
@@ -36,6 +37,8 @@ export interface Strings {
     floor: (floor: number, total: number) => string;
     seed: (seed: number | string) => string;
     tax: (mult: string, secondsLeft: string) => string;
+    /** 模组名 + 已持有强化数 + 已完成进化数，rightbox 顶部常驻一行。 */
+    module: (moduleName: string, upgradeCount: number, evolutionCount: number) => string;
   };
 
   help: string;
@@ -64,7 +67,8 @@ export interface Strings {
   map: {
     hint: string;
     mendToast: (cost: number, cut: string) => string;
-    shortcutToast: (cost: number) => string;
+    /** `skippedLabel` 是被跳过那一层的房型名字；为空串表示这一层没有内容（极端情况）。 */
+    shortcutToast: (cost: number, skippedLabel: string, elite: boolean) => string;
   };
 
   rooms: Record<RoomKind, RoomText>;
@@ -108,12 +112,17 @@ export interface Strings {
     spend: string;
     ref: string;
     seed: string;
+    module: string;
     owned: string;
     none: string;
     retry: string;
     fresh: string;
     copied: string;
     listSep: string;
+    /** 「模组核心伤害占比」小节标题；具体标签名走 damageTag。 */
+    damage: string;
+    damageNone: string;
+    damageTag: Record<DamageTag, string>;
   };
 
   pause: {
@@ -135,6 +144,8 @@ const zh: Strings = {
     floor: (floor, total) => `第 ${floor} 层 / ${total}`,
     seed: (seed) => `SEED ${seed}`,
     tax: (mult, secondsLeft) => `连击税 ×${mult} · ${secondsLeft}s 后清零`,
+    module: (moduleName, upgradeCount, evolutionCount) =>
+      `${moduleName} · 强化 ${upgradeCount} · 进化 ${evolutionCount}`,
   },
 
   help: 'WASD 移动 · 鼠标瞄准 · 左键挥砍 · 空格/右键 朝光标冲刺(无敌) · 数字键选卡 · ESC 暂停',
@@ -176,7 +187,12 @@ const zh: Strings = {
   map: {
     hint: '选 择 路 线 —— 时 钟 正 在 走',
     mendToast: (cost, cut) => `花费 ${cost}s，消除了 ${cut}s 惩罚`,
-    shortcutToast: (cost) => `花费 ${cost}s 跳过一整层`,
+    shortcutToast: (cost, skippedLabel, elite) =>
+      elite
+        ? `花费 ${cost}s 跳过一层精英房 —— 失去一次进化机会`
+        : skippedLabel
+          ? `花费 ${cost}s 跳过一层「${skippedLabel}」`
+          : `花费 ${cost}s 跳过一整层`,
   },
 
   rooms: {
@@ -278,12 +294,23 @@ const zh: Strings = {
     spend: '秒数消费',
     ref: '击杀返还',
     seed: 'SEED',
+    module: '模组',
     owned: '持有强化',
     none: '无',
     retry: '同 一 SEED 再 跑',
     fresh: '换 一 局',
     copied: 'SEED 已复制',
     listSep: '、',
+    damage: '伤害占比',
+    damageNone: '本局未造成伤害',
+    damageTag: {
+      MELEE: '普通攻击',
+      BLADE: '飞刃',
+      DASH: '掠影',
+      CHARGE: '蓄势',
+      EXPLOSION: '引爆',
+      AFTEREFFECT: '延迟打击',
+    },
   },
 
   pause: {
@@ -319,6 +346,8 @@ const en: Strings = {
     floor: (floor, total) => `Floor ${floor} / ${total}`,
     seed: (seed) => `SEED ${seed}`,
     tax: (mult, secondsLeft) => `Combo tax ×${mult} · clears in ${secondsLeft}s`,
+    module: (moduleName, upgradeCount, evolutionCount) =>
+      `${moduleName} · Upgrades ${upgradeCount} · Evolutions ${evolutionCount}`,
   },
 
   help: 'WASD move · mouse aim · LMB slash · Space/RMB dash toward cursor (i-frames) · number keys pick cards · ESC pause',
@@ -360,7 +389,12 @@ const en: Strings = {
   map: {
     hint: 'Choose a route — the clock is running',
     mendToast: (cost, cut) => `Spent ${cost}s, cleared ${cut}s of penalty`,
-    shortcutToast: (cost) => `Spent ${cost}s to skip a whole floor`,
+    shortcutToast: (cost, skippedLabel, elite) =>
+      elite
+        ? `Spent ${cost}s to skip a floor of Elite — one evolution chance gone`
+        : skippedLabel
+          ? `Spent ${cost}s to skip a floor of ${skippedLabel}`
+          : `Spent ${cost}s to skip a whole floor`,
   },
 
   rooms: {
@@ -462,12 +496,23 @@ const en: Strings = {
     spend: 'Spent',
     ref: 'Kill Refund',
     seed: 'SEED',
+    module: 'Module',
     owned: 'Upgrades',
     none: 'None',
     retry: 'Retry Same Seed',
     fresh: 'New Run',
     copied: 'Seed copied',
     listSep: ', ',
+    damage: 'Damage Breakdown',
+    damageNone: 'No damage dealt this run',
+    damageTag: {
+      MELEE: 'Melee',
+      BLADE: 'Blade',
+      DASH: 'Dash',
+      CHARGE: 'Charge',
+      EXPLOSION: 'Detonation',
+      AFTEREFFECT: 'Delayed Strike',
+    },
   },
 
   pause: {

@@ -61,7 +61,10 @@ export class MapScene implements Scene {
       case 'shortcut': {
         const cost = run.shortcutCost;
         run.ledger.addSpend(cost);
-        overlay.toast(t().map.shortcutToast(cost));
+        const skipped = node.skippedKinds ?? [];
+        const elite = skipped.includes('elite');
+        const label = skipped.length > 0 ? t().rooms[skipped[0]!].label : '';
+        overlay.toast(t().map.shortcutToast(cost, label, elite));
         this.leave(node);
         return;
       }

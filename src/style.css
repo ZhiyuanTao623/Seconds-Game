@@ -35,11 +35,14 @@ canvas { display: block; background: #0d0d10; image-rendering: auto; }
 #rightbox { text-align: right; margin-top: 24px; }
 #nodeinfo { font-size: 12px; opacity: .7; }
 #seedinfo { margin-top: 6px; font-size: 11px; opacity: .42; letter-spacing: 1px; }
+#moduleinfo { margin-top: 6px; font-size: 12px; opacity: .8; color: #8fd0ff; }
 #upglist { margin-top: 8px; font-size: 11px; opacity: .85; line-height: 1.7; max-width: 240px; }
 #upglist span {
   display: inline-block; border: 1px solid #444;
   padding: 1px 6px; margin: 1px; border-radius: 2px;
 }
+/* 已完成进化的强化：金边区分于尚未进化的普通强化 */
+#upglist span.evolved { border-color: #ffd166; color: #ffd166; }
 
 /* ---------------------------------------------------------------- overlay */
 #ov {

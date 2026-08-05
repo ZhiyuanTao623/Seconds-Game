@@ -67,6 +67,7 @@ export class CombatScene implements Scene {
   exit(): void {
     // 房间一走，所有排期作废 —— 不会有回调活得比它所属的战斗更久
     this.world.timeline.clear();
+    this.ctx.run.mergeDamageByTag(this.world.damageByTag);
   }
 
   private finish(): void {

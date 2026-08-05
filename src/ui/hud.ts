@@ -22,6 +22,7 @@ export class Hud {
   private tax = el('bTax');
   private nodeInfo = el('nodeinfo');
   private seedInfo = el('seedinfo');
+  private moduleInfo = el('moduleinfo');
   private upgrades = el('upglist');
 
   private lblPlay = el('lblPlay');
@@ -71,10 +72,13 @@ export class Hud {
 
     this.nodeInfo.textContent = run.floorLabel;
     this.seedInfo.textContent = t().hud.seed(run.seed);
+    this.moduleInfo.textContent = t().hud.module(t().modules[run.module].name, run.owned.length, run.evolved.size);
 
     if (run.upgradeVersion !== this.lastUpgradeVersion) {
       this.lastUpgradeVersion = run.upgradeVersion;
-      this.upgrades.innerHTML = run.owned.map((u) => `<span>${run.upgradeLabel(u)}</span>`).join('');
+      this.upgrades.innerHTML = run.owned
+        .map((u) => `<span${run.evolved.has(u.id) ? ' class="evolved"' : ''}>${run.upgradeLabel(u)}</span>`)
+        .join('');
     }
   }
 
@@ -84,5 +88,6 @@ export class Hud {
     this.tax.textContent = '';
     this.nodeInfo.textContent = '';
     this.seedInfo.textContent = '';
+    this.moduleInfo.textContent = '';
   }
 }
