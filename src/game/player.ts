@@ -11,6 +11,13 @@ export interface Player {
   aim: number;
 
   atkCd: number;
+  /**
+   * 默认连砍是否已经「解锁」。每个房间开局為 false，必须先看到左键松开一次
+   * 才会解锁——否则进战斗那一刻如果左键还是从点地图/点卡片时按下的状态
+   * （`isMouseDown` 是跨事件的电平信号，不知道这次按下发生在哪个场景），
+   * 会被读成「玩家正按着攻击键」，一进房间就白打一下。
+   */
+  attackArmed: boolean;
 
   dashCd: number;
   dashT: number;
@@ -51,7 +58,7 @@ export function createPlayer(): Player {
   return {
     x: PLAYER.spawn.x, y: PLAYER.spawn.y, r: PLAYER.radius,
     vx: 0, vy: 0, aim: -Math.PI / 2,
-    atkCd: 0,
+    atkCd: 0, attackArmed: false,
     dashCd: 0, dashT: 0, dashDir: 0, dashHits: new Set(),
     dashStartX: 0, dashStartY: 0, dashFlashReduced: 0, dashPerfectDodge: false,
     speedBuffT: 0,
@@ -91,6 +98,14 @@ export function updatePlayer(world: World, input: InputSource, dt: number): void
 
 // ---------------------------------------------------------------- 冲刺
 
+/** 方向键合成的朝向；没按任何方向键时返回 null。 */
+function moveInputAngle(input: InputSource): number | null {
+  const ix = (input.isDown('KeyD', 'ArrowRight') ? 1 : 0) - (input.isDown('KeyA', 'ArrowLeft') ? 1 : 0);
+  const iy = (input.isDown('KeyS', 'ArrowDown') ? 1 : 0) - (input.isDown('KeyW', 'ArrowUp') ? 1 : 0);
+  if (ix === 0 && iy === 0) return null;
+  return Math.atan2(iy, ix);
+}
+
 function updateDash(world: World, input: InputSource, dt: number): void {
   const p = world.player;
   const s = world.stats;
@@ -99,8 +114,8 @@ function updateDash(world: World, input: InputSource, dt: number): void {
   if (wantsDash && p.dashCd <= 0 && p.dashT <= 0 && canDashCancel(p)) {
     p.dashT = PLAYER.dashTime;
     p.dashCd = s.dashCd;
-    // 冲刺一律朝光标，与移动键无关，且在按下那一帧就锁死
-    p.dashDir = p.aim;
+    // 冲刺朝按住的方向键；没按方向键时退回朝光标，且在按下那一帧就锁死
+    p.dashDir = moveInputAngle(input) ?? p.aim;
     p.dashHits.clear();
     p.dashStartX = p.x;
     p.dashStartY = p.y;
@@ -234,8 +249,11 @@ function updateAttack(world: World, input: InputSource, dt: number): void {
     return;
   }
 
+  // 左键抬起过一次才「解锁」——防止进房间那一刻仍带着点地图/点卡片时的按下状态，白打一下
+  if (!input.isMouseDown('left')) p.attackArmed = true;
+
   // 默认：按住左键，按 atkCd 的节奏连续挥砍
-  if (input.isMouseDown('left') && p.atkCd <= 0) slash(world, false);
+  if (p.attackArmed && input.isMouseDown('left') && p.atkCd <= 0) slash(world, false);
 }
 
 /**

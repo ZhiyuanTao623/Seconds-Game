@@ -433,7 +433,8 @@ export const BOSS = {
  */
 export const MODULES = {
   blade: {
-    damageMult: 0.40,
+    // 试玩反馈：v3 首版 0.40 打出来太肉，飞刃刃弹伤害回调到接近旧版 0.55 的水平
+    damageMult: 0.55,
     speed: 620,
     radius: 5,
     life: 0.9,
