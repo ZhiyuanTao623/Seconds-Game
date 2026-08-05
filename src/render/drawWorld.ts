@@ -343,16 +343,22 @@ function drawDashRing(r: Renderer, world: World): void {
   }
 }
 
-/** 蓄力进度：蓄满会变成实心的金环，告诉你「现在松手是全向斩」。 */
+/**
+ * 蓄力进度：蓄满会变成实心的金环，告诉你「现在松手是全向斩」。
+ * 精准释放窗口内额外闪白——这是「现在松手伤害更高、后摇更短」的读秒提示。
+ */
 function drawChargeRing(r: Renderer, world: World): void {
   const p = world.player;
   if (!p.charging || p.chargeT <= 0) return;
 
+  const s = world.stats;
   const { ctx } = r;
-  const k = clamp(p.chargeT / world.stats.chargeTime, 0, 1);
+  const k = clamp(p.chargeT / s.chargeTime, 0, 1);
   const full = k >= 1;
-  ctx.strokeStyle = full ? 'rgba(255,209,102,.95)' : 'rgba(255,209,102,.5)';
-  ctx.lineWidth = full ? 3.5 : 2;
+  const precise = s.chargePreciseMin > 0 && p.chargeT >= s.chargePreciseMin && p.chargeT <= s.chargePreciseMax;
+
+  ctx.strokeStyle = precise ? 'rgba(255,255,255,.95)' : full ? 'rgba(255,209,102,.95)' : 'rgba(255,209,102,.5)';
+  ctx.lineWidth = precise ? 4.5 : full ? 3.5 : 2;
   ctx.beginPath();
   ctx.arc(p.x, p.y, p.r + 13, -Math.PI / 2, -Math.PI / 2 + TAU * k);
   ctx.stroke();

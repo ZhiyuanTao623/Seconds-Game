@@ -95,6 +95,23 @@ export const UPGRADES: readonly Upgrade[] = [
     id: 'da_ghost', module: 'dash', cost: 15,
     apply: (s) => { s.ghostEnabled = true; s.ghostDelay = 0.45; s.ghostDamageMult = 0.75; },
   }),
+
+  // ---- 蓄势模组专属 ----
+  mkUpgrade({
+    id: 'ch_release', module: 'charge', cost: 13,
+    apply: (s) => {
+      s.chargePreciseMin = 0.55; s.chargePreciseMax = 0.68;
+      s.chargePreciseDamageMult = 2.8; s.chargePreciseRecoverMult = 1.3;
+    },
+  }),
+  mkUpgrade({
+    id: 'ch_shock', module: 'charge', cost: 14,
+    apply: (s) => { s.shockEnabled = true; },
+  }),
+  mkUpgrade({
+    id: 'ch_after', module: 'charge', cost: 15,
+    apply: (s) => { s.aftershockEnabled = true; s.aftershockDelay = 0.35; s.aftershockDamageMult = 0.65; s.aftershockRadiusMult = 0.8; },
+  }),
 ];
 
 const UPGRADE_BY_ID = new Map<string, Upgrade>(UPGRADES.map((u) => [u.id, u]));
@@ -225,6 +242,42 @@ export const EVOLUTIONS: readonly Evolution[] = [
   mkEvolution({
     id: 'da_ghost', branch: 'b', module: 'dash', cost: 21,
     apply: (s) => { s.ghostDelay = 0.75; s.ghostDamageMult = 1.35; },
+  }),
+
+  // ---- 精准释放 → 完美时机 / 宽容节拍
+  mkEvolution({
+    id: 'ch_release', branch: 'a', module: 'charge', cost: 19,
+    apply: (s) => {
+      s.chargePreciseMin = 0.58; s.chargePreciseMax = 0.64;
+      s.chargePreciseDamageMult = 3.6; s.chargePreciseDashRefund = 0.30;
+    },
+  }),
+  mkEvolution({
+    id: 'ch_release', branch: 'b', module: 'charge', cost: 19,
+    apply: (s) => {
+      s.chargePreciseMin = 0.48; s.chargePreciseMax = 0.78;
+      s.chargePreciseDamageMult = 3.0; s.chargePreciseMissHalvesRecover = true;
+    },
+  }),
+
+  // ---- 震荡 → 封招 / 反震
+  mkEvolution({
+    id: 'ch_shock', branch: 'a', module: 'charge', cost: 20,
+    apply: (s) => { s.shockCdMult = 1.4; s.shockStunDuration = 1.2; },
+  }),
+  mkEvolution({
+    id: 'ch_shock', branch: 'b', module: 'charge', cost: 20,
+    apply: (s) => { s.shockReboundMult = 0.35; },
+  }),
+
+  // ---- 余震 → 二重余震 / 扩散余震
+  mkEvolution({
+    id: 'ch_after', branch: 'a', module: 'charge', cost: 21,
+    apply: (s) => { s.aftershockDamageMult = 0.55; s.aftershockStage2Mult = 0.85; s.aftershockStage2Delay = 0.75; },
+  }),
+  mkEvolution({
+    id: 'ch_after', branch: 'b', module: 'charge', cost: 21,
+    apply: (s) => { s.aftershockRadiusMult = 1.35; s.aftershockKnockback = 380; },
   }),
 ];
 

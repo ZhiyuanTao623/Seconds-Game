@@ -255,10 +255,14 @@ function updateChargedAttack(world: World, input: InputSource, dt: number): void
   if (p.charging && input.isMouseDown('left')) p.chargeT += dt;
 
   if (p.charging && input.wasMouseReleased('left')) {
-    const full = p.chargeT >= world.stats.chargeTime;
+    const s = world.stats;
+    // 精准释放：窗口下限可能低于 chargeTime 本身，命中窗口就算「满蓄」，
+    // 不需要真的攒够 chargeTime——这是它「提前一点点也能打出满蓄斩」的意义所在
+    const precise = s.chargePreciseMin > 0 && p.chargeT >= s.chargePreciseMin && p.chargeT <= s.chargePreciseMax;
+    const full = precise || p.chargeT >= s.chargeTime;
     p.charging = false;
     p.chargeT = 0;
-    if (full) slash(world, true);
+    if (full) slash(world, true, precise);
     else if (p.atkCd <= 0) slash(world, false);
   }
 
@@ -269,15 +273,17 @@ function updateChargedAttack(world: World, input: InputSource, dt: number): void
   }
 }
 
-function slash(world: World, charged: boolean): void {
+function slash(world: World, charged: boolean, precise = false): void {
   const p = world.player;
   const s = world.stats;
 
   const range = charged ? s.range * s.chargeRangeMult : s.range;
   const arc = charged ? TAU : s.arc;
-  const damage = charged ? s.dmg * s.chargeDamageMult : s.dmg;
+  const chargeDamageMult = precise ? s.chargePreciseDamageMult : s.chargeDamageMult;
+  const chargeRecoverMult = precise ? s.chargePreciseRecoverMult : s.chargeRecoverMult;
+  const damage = charged ? s.dmg * chargeDamageMult : s.dmg;
 
-  p.atkCd = charged ? s.atkCd * s.chargeRecoverMult : s.atkCd;
+  p.atkCd = charged ? s.atkCd * chargeRecoverMult : s.atkCd;
 
   if (!charged) {
     // 普通挥砍带一点点前冲，让「够到」这件事有手感
@@ -289,16 +295,46 @@ function slash(world: World, charged: boolean): void {
   world.fx.slash(p.x, p.y, p.aim, range, arc, charged ? 0.26 : 0.18);
   if (charged) world.fx.ring(p.x, p.y, 10, range, '#ffd166', 0.3);
 
+  // 先圈出这一下能打到谁——震荡的打断次数要在真正结算伤害前数完，
+  // 因为反震的加成是「这一整下蓄力斩」的加成，不是按命中顺序累进的
+  const hitList: Enemy[] = [];
   for (const e of world.enemies) {
     if (e.dead) continue;
     if (dist(p, e) >= range + e.r) continue;
-    const toEnemy = angleTo(p, e);
-    if (!charged && Math.abs(angleDiff(toEnemy, p.aim)) >= arc / 2) continue;
+    if (!charged && Math.abs(angleDiff(angleTo(p, e), p.aim)) >= arc / 2) continue;
+    hitList.push(e);
+  }
 
-    world.damageEnemy(e, damage, charged ? 'CHARGE' : 'MELEE');
+  let interrupts = 0;
+  if (charged && s.shockEnabled) {
+    for (const e of hitList) if (world.interruptEnemy(e)) interrupts += 1;
+  }
+  const reboundBonus = interrupts > 0 && s.shockReboundMult > 0
+    ? Math.min(interrupts, 3) * s.shockReboundMult * s.dmg
+    : 0;
+
+  for (const e of hitList) {
+    const toEnemy = angleTo(p, e);
+    world.damageEnemy(e, damage + reboundBonus, charged ? 'CHARGE' : 'MELEE');
     e.knockback.x += Math.cos(toEnemy) * PLAYER.enemyKnockback;
     e.knockback.y += Math.sin(toEnemy) * PLAYER.enemyKnockback;
     world.addHitstop(0.03);
+  }
+
+  if (charged && precise) {
+    // 完美时机：精准释放命中 ≥2 个敌人，额外减冲刺冷却
+    if (s.chargePreciseDashRefund > 0 && hitList.length >= 2) {
+      p.dashCd = Math.max(0, p.dashCd - s.chargePreciseDashRefund);
+    }
+    // 宽容节拍：精准释放一个敌人都没打中，后摇再打对折
+    if (s.chargePreciseMissHalvesRecover && hitList.length === 0) {
+      p.atkCd *= 0.5;
+    }
+  }
+
+  // 余震：蓄力斩释放位置留一个定时爆炸区
+  if (charged && s.aftershockEnabled) {
+    world.spawnAftershock(p.x, p.y, range * s.aftershockRadiusMult);
   }
 
   // 飞刃只挂在普通挥砍上 —— 全向斩已经是 360°，再往一个方向丢一枚没有意义

@@ -61,6 +61,12 @@ export interface Enemy {
 
   /** 破阵状态剩余时间（掠影模组「破阵」专属，其余情况恒为 0）。 */
   brokenT: number;
+
+  /**
+   * 硬直剩余时间（蓄势模组「震荡」的封招进化专属，其余情况恒为 0）。
+   * >0 时这个敌人的 update() 整个跳过——不移动、不预警、冷却也不倒计时。
+   */
+  stunT: number;
 }
 
 export interface Bullet {

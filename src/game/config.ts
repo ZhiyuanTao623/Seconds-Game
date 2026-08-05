@@ -141,6 +141,46 @@ export interface Stats {
   ghostDamageMult: number;
   /** 双生残影进化：冲刺起点和终点各留一个。 */
   ghostTwin: boolean;
+
+  // ---- 蓄势：精准释放 ----
+  /** 精准窗口下限。0 = 未持有精准释放。 */
+  chargePreciseMin: number;
+  /** 精准窗口上限。 */
+  chargePreciseMax: number;
+  /** 精准释放的伤害倍率（覆盖普通满蓄倍率 chargeDamageMult）。 */
+  chargePreciseDamageMult: number;
+  /** 精准释放的后摇倍率（覆盖普通满蓄后摇 chargeRecoverMult）。 */
+  chargePreciseRecoverMult: number;
+  /** 完美时机进化：精准释放命中 ≥2 个敌人时，额外减少的冲刺冷却。 */
+  chargePreciseDashRefund: number;
+  /** 宽容节拍进化：精准释放一个敌人都没命中时，后摇再打对折。 */
+  chargePreciseMissHalvesRecover: boolean;
+
+  // ---- 蓄势：震荡 ----
+  /** 是否持有震荡（蓄力斩可以打断非 Boss 敌人的预警）。 */
+  shockEnabled: boolean;
+  /** 被打断的敌人重新抽冷却时乘的倍率。封招进化把它提到 1.4。 */
+  shockCdMult: number;
+  /** 封招进化：被打断的敌人额外硬直这么久（完全冻结，见 Enemy.stunT）。 */
+  shockStunDuration: number;
+  /** 反震进化：本次蓄力斩每打断一个敌人，额外造成 dmg × 这个数的伤害（最多按 3 层算）。 */
+  shockReboundMult: number;
+
+  // ---- 蓄势：余震 ----
+  /** 是否持有余震。 */
+  aftershockEnabled: boolean;
+  /** 第一段延迟。 */
+  aftershockDelay: number;
+  /** 第一段伤害倍率（相对 dmg）。 */
+  aftershockDamageMult: number;
+  /** 余震半径倍率（相对蓄力斩命中范围）。 */
+  aftershockRadiusMult: number;
+  /** 二重余震进化：第二段伤害倍率。0 = 没有第二段。 */
+  aftershockStage2Mult: number;
+  /** 二重余震进化：第二段延迟。 */
+  aftershockStage2Delay: number;
+  /** 扩散余震进化：额外给命中的敌人加一次强击退。0 = 没有这个效果。 */
+  aftershockKnockback: number;
 }
 
 export const BASE_STATS: Readonly<Stats> = {
@@ -203,6 +243,26 @@ export const BASE_STATS: Readonly<Stats> = {
   ghostDelay: 0,
   ghostDamageMult: 0,
   ghostTwin: false,
+
+  chargePreciseMin: 0,
+  chargePreciseMax: 0,
+  chargePreciseDamageMult: 0,
+  chargePreciseRecoverMult: 1,
+  chargePreciseDashRefund: 0,
+  chargePreciseMissHalvesRecover: false,
+
+  shockEnabled: false,
+  shockCdMult: 1,
+  shockStunDuration: 0,
+  shockReboundMult: 0,
+
+  aftershockEnabled: false,
+  aftershockDelay: 0,
+  aftershockDamageMult: 0,
+  aftershockRadiusMult: 0,
+  aftershockStage2Mult: 0,
+  aftershockStage2Delay: 0,
+  aftershockKnockback: 0,
 };
 
 // ---------------------------------------------------------------- 受击经济学

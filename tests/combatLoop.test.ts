@@ -167,6 +167,28 @@ describe('真实循环 fuzz：每一笔扣款都等于当时的价签', () => {
     world.timeline.clear();
     expect(world.timeline.pending).toBe(0);
   });
+
+  it('拿满蓄势三专属强化（含精准释放/震荡/余震）也不会让报价和实扣走岔', () => {
+    const run = new Run(2024, 'charge');
+    for (const id of ['ch_release', 'ch_shock', 'ch_after', 'un_gale']) {
+      const u = upgradeById(id);
+      if (u) run.takeUpgrade(u);
+    }
+    run.takeEvolution(evolutionsFor('ch_shock')[0]!); // 封招：硬直/冷却延长要在真实战斗里也不出岔子
+    run.takeEvolution(evolutionsFor('ch_after')[0]!); // 二重余震：两段定时爆炸都要正确结算
+
+    const bossNode = run.map.nodes.get(run.map.bossId);
+    expect(bossNode).toBeDefined();
+
+    const world = buildRoom(run, bossNode!);
+    const charges = recordCharges(world);
+    simulate(world, 2400, testRng(17));
+
+    for (const c of charges) assertChargeMatchesLabel(c);
+    expect(charges.length).toBeGreaterThan(0);
+    world.timeline.clear();
+    expect(world.timeline.pending).toBe(0);
+  });
 });
 
 describe('无敌与僵直', () => {

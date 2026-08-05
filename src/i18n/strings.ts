@@ -13,13 +13,13 @@ export interface ModuleText { name: string; desc: string }
  * `mkUpgrade({ id: ... })` 的 id 都必须落在这个联合里，拼错字会在编译期报错，
  * 而不是运行时显示一个 undefined 的名字。
  *
- * 目前有 4 个通用强化 + 飞刃/掠影两个模组的专属强化；蓄势的 3 个专属强化
- * 会在下一个里程碑加入。
+ * 4 个通用强化 + 三个模组各 3 个专属强化，第一版规模到此为止。
  */
 export type UpgradeId =
   | 'un_gale' | 'un_blade' | 'un_tough' | 'un_abacus'
   | 'bl_pierce' | 'bl_return' | 'bl_mark'
-  | 'da_flash' | 'da_break' | 'da_ghost';
+  | 'da_flash' | 'da_break' | 'da_ghost'
+  | 'ch_release' | 'ch_shock' | 'ch_after';
 
 /**
  * 全部界面文案的形状。
@@ -245,6 +245,18 @@ const zh: Strings = {
       a: { name: '双生残影', desc: '冲刺起点和终点各留一个残影，每个伤害为 dmg × 65%，同一敌人可以各中一次。' },
       b: { name: '延迟猎杀', desc: '残影延迟提升至 0.75s，伤害提升至 dmg × 135%，爆发前显示清晰的警示范围。' },
     },
+    ch_release: {
+      a: { name: '完美时机', desc: '精准窗口缩短至 0.58–0.64s，伤害提升至 dmg × 360%，命中 ≥2 个敌人额外减 0.30s 冲刺冷却。' },
+      b: { name: '宽容节拍', desc: '精准窗口扩大至 0.48–0.78s，伤害为 dmg × 300%，一个敌人都没命中时后摇再打对折。' },
+    },
+    ch_shock: {
+      a: { name: '封招', desc: '被打断的敌人额外硬直 1.2 秒（完全冻结），下一次冷却延长至 ×1.4。' },
+      b: { name: '反震', desc: '每成功打断一个敌人，本次蓄力斩额外造成 dmg × 35% 伤害，最多按 3 层计算。' },
+    },
+    ch_after: {
+      a: { name: '二重余震', desc: '第一段伤害降至 dmg × 55%，额外在 0.75s 时触发第二段 dmg × 85% 伤害。' },
+      b: { name: '扩散余震', desc: '余震半径提升至蓄力范围 × 135%，伤害不变，命中敌人时附带一次强击退。' },
+    },
   },
 
   shop: {
@@ -293,6 +305,9 @@ const zh: Strings = {
     da_flash: { name: '连闪', desc: '每穿过一个新敌人，冲刺冷却 -0.15s，单次冲刺最多减 0.45s。' },
     da_break: { name: '破阵', desc: '被冲刺穿过的敌人进入破阵状态：普通挥砍伤害 +20%（Boss +12%），持续 1.6s。' },
     da_ghost: { name: '残影', desc: '冲刺结束后在起点留下残影，0.45s 后爆发，半径 75px，伤害 dmg × 75%。' },
+    ch_release: { name: '精准释放', desc: '蓄力达到 0.55–0.68s 时松开：伤害提升至 dmg × 280%，后摇降至 atkCd × 1.3。' },
+    ch_shock: { name: '震荡', desc: '蓄力攻击可以打断冲锋兵/射手/重甲/医疗兵的预警动作（Boss 无效）。' },
+    ch_after: { name: '余震', desc: '蓄力攻击释放后原地留一个余震区域，0.35s 后触发，伤害 dmg × 65%。' },
   },
 };
 
@@ -414,6 +429,18 @@ const en: Strings = {
       a: { name: 'Twin Afterimage', desc: 'Leaves an afterimage at both the dash start and end points, each dealing dmg × 65%; the same enemy can be hit by both.' },
       b: { name: 'Delayed Ambush', desc: 'Detonation delay increases to 0.75s and damage to dmg × 135%; a clear warning ring shows the blast radius beforehand.' },
     },
+    ch_release: {
+      a: { name: 'Perfect Timing', desc: 'Precise window narrows to 0.58–0.64s; damage rises to dmg × 360%; hitting 2+ enemies cuts an extra 0.30s off dash cooldown.' },
+      b: { name: 'Generous Tempo', desc: 'Precise window widens to 0.48–0.78s; damage is dmg × 300%; whiffing entirely halves the recovery again.' },
+    },
+    ch_shock: {
+      a: { name: 'Stunning Blow', desc: 'Interrupted enemies are fully stunned for 1.2s on top of a cooldown extended to ×1.4.' },
+      b: { name: 'Rebound', desc: 'Each enemy interrupted this swing adds dmg × 35% bonus damage to it, capped at 3 stacks.' },
+    },
+    ch_after: {
+      a: { name: 'Double Aftershock', desc: 'First hit drops to dmg × 55%; a second hit fires at 0.75s dealing dmg × 85%.' },
+      b: { name: 'Spreading Aftershock', desc: 'Radius grows to 135% of the charged swing range, damage unchanged, and it adds a strong knockback on hit.' },
+    },
   },
 
   shop: {
@@ -462,6 +489,9 @@ const en: Strings = {
     da_flash: { name: 'Flash Step', desc: 'Each new enemy pierced during a dash cuts 0.15s off cooldown, capped at 0.45s per dash.' },
     da_break: { name: 'Break Formation', desc: 'Enemies dashed through are broken: melee damage +20% (+12% for the Boss) for 1.6s.' },
     da_ghost: { name: 'Afterimage', desc: 'Leaves an afterimage at the dash start point that detonates 0.45s later, radius 75px, dealing dmg × 75%.' },
+    ch_release: { name: 'Precise Release', desc: 'Releasing between 0.55–0.68s charge: damage rises to dmg × 280%, recovery drops to atkCd × 1.3.' },
+    ch_shock: { name: 'Shockwave', desc: 'Charged swings interrupt the telegraph of chargers, shooters, brutes, and medics (not the Boss).' },
+    ch_after: { name: 'Aftershock', desc: 'A charged swing leaves an aftershock at your feet, triggering 0.35s later for dmg × 65%.' },
   },
 };
 

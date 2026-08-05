@@ -49,5 +49,6 @@ export function baseEnemy(
     markStacks: 0,
     markT: 0,
     brokenT: 0,
+    stunT: 0,
   };
 }

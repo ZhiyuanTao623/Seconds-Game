@@ -27,6 +27,8 @@ export function spawnEnemy(
 }
 
 export function updateEnemy(world: World, e: Enemy, dt: number): void {
+  // 震荡封招的硬直：完全冻结，连冷却倒计时都不走
+  if (e.stunT > 0) return;
   REGISTRY[e.kind].update(world, e, dt);
 }
 

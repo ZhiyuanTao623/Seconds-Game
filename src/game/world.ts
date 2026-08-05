@@ -1,4 +1,4 @@
-import { BOSS, FEEL, HIT, MODULES, PLAYER } from './config';
+import { BOSS, BRUTE, CHARGER, FEEL, HIT, MEDIC, MODULES, PLAYER, SHOOTER } from './config';
 import { Arena } from './arena';
 import { Fx } from './fx';
 import { Timeline } from '../core/timeline';
@@ -181,6 +181,58 @@ export class World {
         this.damageEnemy(e, s.dmg * s.ghostDamageMult, 'AFTEREFFECT');
       }
     });
+  }
+
+  /**
+   * 震荡：打断一个正在预警的非 Boss 敌人。只把它打回 idle 还不够——它的
+   * `cd` 字段在预警期间没被动过，原样放回去下一帧会立刻又触发同一个预警。
+   * 所以必须重新抽一个正常冷却（封招会把这个冷却乘 1.4），
+   * 需要的话再叠一段完全冻结的硬直（Enemy.stunT，见 enemies/index.ts）。
+   */
+  interruptEnemy(e: Enemy): boolean {
+    if (e.kind === 'boss' || e.state !== 'telegraph') return false;
+    const s = this.stats;
+    const cooldown = INTERRUPT_COOLDOWN[e.kind];
+    e.state = 'idle';
+    e.t = 0;
+    e.cd = this.rng.range(...cooldown) * s.shockCdMult;
+    if (s.shockStunDuration > 0) e.stunT = s.shockStunDuration;
+    this.fx.ring(e.x, e.y, e.r, e.r + 30, '#ffd166', 0.25);
+    return true;
+  }
+
+  /**
+   * 余震：蓄力斩释放位置留一个定时爆炸区，`aftershockDelay` 秒后触发。
+   * 二重余震额外排一段 `aftershockStage2Mult` 的第二次爆炸。
+   * 和残影一样，调度只发生在这里（玩家释放蓄力斩时），AFTEREFFECT 标签的
+   * 伤害不会再触发新的余震——递归禁令是结构性的。
+   */
+  spawnAftershock(x: number, y: number, radius: number): void {
+    const s = this.stats;
+    this.fx.ring(x, y, radius * 0.3, radius, '#ffd166', s.aftershockDelay);
+
+    this.timeline.after(s.aftershockDelay, () => {
+      this.fx.ring(x, y, 8, radius + 20, '#ffd166', 0.3);
+      for (const e of this.enemies) {
+        if (e.dead || dist({ x, y }, e) > radius) continue;
+        this.damageEnemy(e, s.dmg * s.aftershockDamageMult, 'AFTEREFFECT');
+        if (s.aftershockKnockback > 0) {
+          const angle = angleTo({ x, y }, e);
+          e.knockback.x += Math.cos(angle) * s.aftershockKnockback;
+          e.knockback.y += Math.sin(angle) * s.aftershockKnockback;
+        }
+      }
+    });
+
+    if (s.aftershockStage2Mult > 0) {
+      this.timeline.after(s.aftershockStage2Delay, () => {
+        this.fx.ring(x, y, 8, radius + 20, '#ff8a5c', 0.3);
+        for (const e of this.enemies) {
+          if (e.dead || dist({ x, y }, e) > radius) continue;
+          this.damageEnemy(e, s.dmg * s.aftershockStage2Mult, 'AFTEREFFECT');
+        }
+      });
+    }
   }
 
   // ---------------------------------------------------------------- 演出钩子
@@ -367,7 +419,19 @@ export class World {
   }
 }
 
-/** 所有敌人共有的每帧处理：击退位移、白闪衰减、刃印过期。 */
+/** 被打断后重新抽取的冷却区间，按敌人种类各用自己原本的 cooldown 常量。 */
+const INTERRUPT_COOLDOWN: Record<'charger' | 'shooter' | 'brute' | 'medic', readonly [number, number]> = {
+  charger: CHARGER.cooldown,
+  shooter: SHOOTER.cooldown,
+  brute: BRUTE.cooldown,
+  medic: MEDIC.cooldown,
+};
+
+/**
+ * 所有敌人共有的每帧处理：击退位移、白闪衰减、刃印/破阵过期、震荡硬直倒计时。
+ * 硬直本身（跳过整个 update）在 enemies/index.ts 的 updateEnemy 分发处判断，
+ * 这里只负责让 stunT 归零——两处都要看这个字段，缺一个硬直就解不开。
+ */
 function updateEnemyCommon(e: Enemy, dt: number): void {
   e.flash -= dt;
   e.x += e.knockback.x * dt;
@@ -382,4 +446,5 @@ function updateEnemyCommon(e: Enemy, dt: number): void {
   }
 
   if (e.brokenT > 0) e.brokenT -= dt;
+  if (e.stunT > 0) e.stunT -= dt;
 }
