@@ -12,13 +12,17 @@ import type { MapNode } from '../game/map';
  * 秒 · 商店。你永远买得起 —— 因为代价直接记在你的计时器上，
  * 不存在「钱不够」这回事，每一次购买都是纯粹的价值判断。
  *
- * ⚠️ 逛店期间时钟在走：这个判断还必须**快**，你不能站在货架前把账算到底。
+ * ⚠️ 竞速模式下逛店期间时钟在走：这个判断还必须**快**，你不能站在货架前把账
+ * 算到底。练习模式停表，可以把账算清楚再决定。
  */
 export class ShopScene implements Scene {
   readonly countsTime = true;
   readonly pausable = true;
 
   private stock: ShopSlot[];
+
+  /** 练习模式：逛店不计时。购买消费照常记账。 */
+  get timeScale(): number { return this.ctx.run.mode === 'practice' ? 0 : 1; }
 
   constructor(private ctx: SceneContext, private node: MapNode) {
     this.stock = drawShopStock(ctx.run.rngFor(node.id, 'shop'), ctx.run.rewardState);
@@ -54,7 +58,7 @@ export class ShopScene implements Scene {
       <div class="ov-sub">
         ${s.body}<br>
         ${s.total(`<b style="color:#fff">${formatSeconds(run.ledger.total)}s</b>`)}
-        <b style="color:#ff8a5c">${s.clockNote}</b>
+        <b style="color:#ff8a5c">${run.mode === 'practice' ? s.practiceNote : s.clockNote}</b>
       </div>
       ${cardsHtml(cards)}
       <div class="btn" id="leave">${s.leave}</div>

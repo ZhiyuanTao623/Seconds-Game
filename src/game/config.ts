@@ -504,6 +504,20 @@ export const REWARDS = {
   shopSlots: 4,
 } as const;
 
+// ---------------------------------------------------------------- 限时宝箱原型
+
+/** 只在本局进入的第二个普通战斗房启用；不参与地图房型生成。 */
+export const TIMED_CHEST = {
+  initialTime: 30,
+  criticalTime: 5,
+  hitFlashTime: 0.32,
+  rewardChoices: 4,
+  /** 空场，避免原型宝箱与墙体重叠。 */
+  layoutIndex: 4,
+  position: { x: 900, y: 520 },
+  enemyPlan: ['charger', 'charger', 'shooter', 'shooter', 'brute'] as const,
+} as const;
+
 /** 商店/奖励里各档强化的基础价区间，见 DESIGN.md §2.3。 */
 export const PRICES = {
   moduleBase: [12, 16] as const,

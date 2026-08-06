@@ -61,13 +61,20 @@ const canvasEl = (): HTMLCanvasElement => document.getElementById('c') as HTMLCa
 const overlayText = (): string => document.getElementById('ovinner')?.textContent ?? '';
 const overlayOpen = (): boolean => document.getElementById('ov')?.classList.contains('on') ?? false;
 
-/** 从标题页填 seed、开始、在模组选择页选一张卡，停在地图上。 */
-function startRun(seed = '20260802', moduleIndex = 0): { app: App; canvas: HTMLCanvasElement } {
+/**
+ * 从标题页填 seed、开始、选模式、再在模组选择页选一张卡，停在地图上。
+ *
+ * `modeIndex` 对应 GAME_MODES：0 = 竞速（默认，其余测试都按这个走），1 = 练习。
+ */
+function startRun(seed = '20260802', moduleIndex = 0, modeIndex = 0): { app: App; canvas: HTMLCanvasElement } {
   const canvas = canvasEl();
   const app = new App(canvas);
 
   (document.getElementById('seed') as HTMLInputElement).value = seed;
   document.getElementById('start')!.click();
+  pump();
+
+  (document.querySelectorAll('#ovinner .card')[modeIndex] as HTMLElement).click();
   pump();
 
   (document.querySelectorAll('#ovinner .card')[moduleIndex] as HTMLElement).click();
@@ -173,6 +180,42 @@ describe('一整局跑到底', () => {
     expect(app.run.owned.length).toBe(1);
     expect(overlayOpen(), '拿完卡该回到地图').toBe(false);
     expect(app.run.available.length).toBeGreaterThan(0);
+  });
+
+  it('第二个普通战斗房显示宝箱，成功后只把本房升级为 4 选 1', () => {
+    const { app, canvas } = startRun();
+    enter(app, canvas, app.run.available[0]!);
+    clearRoom(app);
+    (document.querySelector('#ovinner .card') as HTMLElement).click();
+    pump();
+
+    const second = [...app.run.map.nodes.values()].find((n) => n.kind === 'combat' && !n.visited)!;
+    enter(app, canvas, second.id);
+    expect(document.getElementById('chesthud')!.classList.contains('on')).toBe(true);
+    expect(document.getElementById('chesttime')!.textContent).toMatch(/^\d+\.\d+s$/);
+
+    const chestBeforePause = app.scene.timedChest!.remaining;
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape' }));
+    pump();
+    for (let i = 0; i < 20; i++) pump(20);
+    expect(app.scene.timedChest!.remaining).toBe(chestBeforePause);
+    document.getElementById('resume')!.click();
+    pump();
+
+    clearRoom(app);
+    expect(overlayText()).toContain('4 选 1');
+    const cards = document.querySelectorAll('#ovinner .card');
+    expect(cards).toHaveLength(4);
+    const before = app.run.owned.length;
+    (cards[0] as HTMLElement).click();
+    pump();
+    expect(app.run.owned.length).toBe(before + 1);
+    expect(document.getElementById('chesthud')!.classList.contains('on')).toBe(false);
+
+    const third = [...app.run.map.nodes.values()].find((n) => n.kind === 'combat' && !n.visited)!;
+    enter(app, canvas, third.id);
+    clearRoom(app);
+    expect(document.querySelectorAll('#ovinner .card')).toHaveLength(3);
   });
 
   it('打完 Boss 进结算页，停表并给出评级', () => {
@@ -293,6 +336,106 @@ describe('商店与奖励界面', () => {
     expect(app.run.ledger.penalty).toBeCloseTo(12, 9);
     expect(app.run.ledger.spend).toBeGreaterThan(0);
     expect(app.run.available.length, '修复完应该摊开下一批节点').toBeGreaterThan(0);
+  });
+});
+
+describe('练习模式', () => {
+  /** 走到某个节点并进入它。 */
+  function enter(app: App, canvas: HTMLCanvasElement, nodeId: string): void {
+    app.run.available = [nodeId];
+    pump();
+    const pos = nodePos(app.run.map.nodes.get(nodeId)!);
+    mouse(canvas, 'mousemove', pos.x, pos.y);
+    mouse(canvas, 'mousedown', pos.x, pos.y);
+    pump();
+  }
+
+  /** 清场并把过场时间推完。 */
+  function clearRoom(app: App): void {
+    (app.scene as unknown as { world: { enemies: unknown[] } }).world.enemies = [];
+    for (let i = 0; i < 60; i++) pump(20);
+  }
+
+  /** 推一段时间，返回这段时间里账本走了多少。 */
+  function tickedOver(app: App, frames = 30): number {
+    const before = app.run.ledger.total;
+    for (let i = 0; i < frames; i++) pump(20);
+    return app.run.ledger.total - before;
+  }
+
+  it('开始按钮先进模式选择页，两张卡', () => {
+    new App(canvasEl());
+    (document.getElementById('seed') as HTMLInputElement).value = '20260802';
+    document.getElementById('start')!.click();
+    pump();
+
+    expect(overlayText()).toContain('选 择 模 式');
+    expect(document.querySelectorAll('#ovinner .card')).toHaveLength(2);
+  });
+
+  it('地图停表，但战斗照常计时', () => {
+    const { app, canvas } = startRun('20260802', 0, 1);
+    expect(app.run.mode).toBe('practice');
+
+    expect(tickedOver(app), '练习模式在地图上不该走表').toBe(0);
+
+    enter(app, canvas, app.run.available[0]!);
+    expect(tickedOver(app, 20), '练习模式的战斗仍然要计时').toBeGreaterThan(0);
+  });
+
+  it('奖励界面停表，拿完卡回到地图也仍然停表', () => {
+    const { app, canvas } = startRun('20260802', 0, 1);
+    enter(app, canvas, app.run.available[0]!);
+    clearRoom(app);
+
+    expect(overlayText()).toContain('房 间 已 清 空');
+    expect(overlayText(), '停表时不能还写着「时钟还在走」').toContain('练习模式');
+    expect(tickedOver(app), '挑卡期间不该走表').toBe(0);
+
+    (document.querySelector('#ovinner .card') as HTMLElement).click();
+    pump();
+
+    expect(app.run.owned.length).toBe(1);
+    expect(tickedOver(app), '回到地图后仍该停表').toBe(0);
+  });
+
+  it('商店停表，但购买照常记消费', () => {
+    const { app, canvas } = startRun('20260802', 0, 1);
+    const shop = [...app.run.map.nodes.values()].find((n) => n.kind === 'shop')!;
+    enter(app, canvas, shop.id);
+
+    expect(overlayText()).toContain('秒 · 商 店');
+    expect(tickedOver(app, 20), '逛店期间不该走表').toBe(0);
+
+    const spendBefore = app.run.ledger.spend;
+    const totalBefore = app.run.ledger.total;
+    firstBuyableCard()!.click();
+    pump();
+
+    const spent = app.run.ledger.spend - spendBefore;
+    expect(spent, '练习模式照样要为强化付秒数').toBeGreaterThan(0);
+    expect(app.run.ledger.total - totalBefore, '停表下总分只应该被消费推高').toBeCloseTo(spent, 9);
+    expect(app.run.owned.length).toBe(1);
+  });
+
+  it('结算页写明本局模式，同 seed 重跑仍是练习', () => {
+    const { app, canvas } = startRun('4242', 0, 1);
+    enter(app, canvas, app.run.map.bossId);
+    clearRoom(app);
+
+    expect(overlayText()).toContain('练习');
+
+    document.getElementById('again')!.click();
+    pump();
+
+    expect(app.run.mode, '练习重跑不该悄悄变回竞速').toBe('practice');
+    expect(app.run.seed).toBe(4242);
+  });
+
+  it('竞速模式一切照旧：地图仍然计时', () => {
+    const { app } = startRun('20260802', 0, 0);
+    expect(app.run.mode).toBe('speedrun');
+    expect(tickedOver(app)).toBeGreaterThan(0);
   });
 });
 

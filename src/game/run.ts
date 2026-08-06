@@ -9,6 +9,7 @@ import { RngStream } from '../core/rng';
 import type { MapNode, RunMap } from './map';
 import type { Stats } from './config';
 import type { DamageTag } from './entities';
+import type { GameMode } from './mode';
 import type { ModuleId } from './modules';
 import type { Evolution, EvolutionBranch, Upgrade } from './upgrades';
 import type { Offer } from './rewards';
@@ -34,6 +35,8 @@ export const MODULE_DAMAGE_TAG: Record<ModuleId, DamageTag> = {
 export class Run {
   readonly seed: number;
   readonly module: ModuleId;
+  /** 本局模式。只影响决策界面走不走表，见 `game/mode.ts`。 */
+  readonly mode: GameMode;
   readonly map: RunMap;
   readonly ledger = new Ledger();
 
@@ -54,12 +57,17 @@ export class Run {
   available: string[];
   won = false;
 
+  private _normalCombatRoomsEntered = 0;
+  private timedChestNodeId: string | null = null;
+
   /** 整局按标签累计的伤害（结算页用）。每个房间结束时由 `CombatScene` 并进来。 */
   readonly damageByTag = createDamageTally();
 
-  constructor(seed: number, module: ModuleId) {
+  constructor(seed: number, module: ModuleId, mode: GameMode = 'speedrun') {
     this.seed = seed >>> 0;
     this.module = module;
+    // mode 不参与任何随机派生：同一 seed 两种模式生成同一张图
+    this.mode = mode;
     this.map = generateMap(new RngStream(this.seed).derive('map'));
     this.available = [...this.map.entries];
     this.stats = computeStats(this.module, this.owned);
@@ -73,10 +81,20 @@ export class Run {
   node(id: string): MapNode | undefined { return this.map.nodes.get(id); }
 
   enter(node: MapNode): void {
+    const firstVisit = !node.visited;
     node.visited = true;
     this.current = node;
     this.available = [];
+
+    if (firstVisit && node.kind === 'combat') {
+      this._normalCombatRoomsEntered += 1;
+      if (this._normalCombatRoomsEntered === 2) this.timedChestNodeId = node.id;
+    }
   }
+
+  get normalCombatRoomsEntered(): number { return this._normalCombatRoomsEntered; }
+
+  isTimedChestRoom(node: MapNode): boolean { return this.timedChestNodeId === node.id; }
 
   /** 房间结束，摊开下一批可选节点。 */
   advance(from: MapNode): void {

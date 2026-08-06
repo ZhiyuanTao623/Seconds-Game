@@ -2,6 +2,7 @@ import { comboTax, formatSeconds } from '../game/pricing';
 import { onLocaleChange, t } from '../i18n/i18n';
 import type { Run } from '../game/run';
 import type { Player } from '../game/player';
+import type { TimedChestView } from '../game/timedChest';
 
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -24,6 +25,10 @@ export class Hud {
   private seedInfo = el('seedinfo');
   private moduleInfo = el('moduleinfo');
   private upgrades = el('upglist');
+  private chestHud = el('chesthud');
+  private chestTitle = el('chesttitle');
+  private chestTime = el('chesttime');
+  private chestDetail = el('chestdetail');
 
   private lblPlay = el('lblPlay');
   private lblPen = el('lblPen');
@@ -52,7 +57,7 @@ export class Hud {
     this.lblRef.textContent = s.ref;
   }
 
-  update(run: Run | null, player: Player | null, dt: number): void {
+  update(run: Run | null, player: Player | null, chest: TimedChestView | null, dt: number): void {
     if (!run) return;
 
     const { ledger } = run;
@@ -72,13 +77,42 @@ export class Hud {
 
     this.nodeInfo.textContent = run.floorLabel;
     this.seedInfo.textContent = t().hud.seed(run.seed);
-    this.moduleInfo.textContent = t().hud.module(t().modules[run.module].name, run.owned.length, run.evolved.size);
+    // 竞速模式前缀为空串 —— 这一行的输出和加练习模式之前逐字节一致
+    const modeTag = run.mode === 'practice' ? `[${t().modes.practice}] ` : '';
+    this.moduleInfo.textContent =
+      modeTag + t().hud.module(t().modules[run.module].name, run.owned.length, run.evolved.size);
+
+    this.updateTimedChest(chest);
 
     if (run.upgradeVersion !== this.lastUpgradeVersion) {
       this.lastUpgradeVersion = run.upgradeVersion;
       this.upgrades.innerHTML = run.owned
         .map((u) => `<span${run.evolved.has(u.id) ? ' class="evolved"' : ''}>${run.upgradeLabel(u)}</span>`)
         .join('');
+    }
+  }
+
+  private updateTimedChest(chest: TimedChestView | null): void {
+    this.chestHud.className = '';
+    if (!chest) return;
+
+    const s = t().timedChest;
+    this.chestHud.classList.add('on');
+    this.chestTitle.textContent = s.title;
+    this.chestHud.classList.toggle('critical', chest.state === 'Critical');
+    this.chestHud.classList.toggle('hit', chest.hitFlash > 0);
+    this.chestHud.classList.toggle('succeeded', chest.state === 'Succeeded');
+    this.chestHud.classList.toggle('expired', chest.state === 'Expired');
+
+    if (chest.state === 'Succeeded') {
+      this.chestTime.textContent = s.succeeded;
+      this.chestDetail.textContent = s.rewardBonus;
+    } else if (chest.state === 'Expired') {
+      this.chestTime.textContent = s.expired;
+      this.chestDetail.textContent = s.expiredDetail;
+    } else {
+      this.chestTime.textContent = `${Math.max(0, chest.remaining).toFixed(1)}s`;
+      this.chestDetail.textContent = s.objective;
     }
   }
 
@@ -89,5 +123,6 @@ export class Hud {
     this.nodeInfo.textContent = '';
     this.seedInfo.textContent = '';
     this.moduleInfo.textContent = '';
+    this.chestHud.className = '';
   }
 }

@@ -257,12 +257,54 @@
 - **飞刃基础伤害回调**：试玩反馈刃弹伤害偏低，`MODULES.blade.damageMult` 从 v3
   首版的 `0.40` 调回接近旧版 `0.55` 的水平（`src/game/config.ts`）。
 
+## 竞速模式 / 练习模式（2026-08-06）
+
+开局多一次二选一：现有玩法定名**竞速模式**（行为完全不变），新增**练习模式**——
+**决策界面停表，战斗照常计时**。开局流程变成「标题页填 seed → **模式选择页** →
+模组选择页 → 地图」。
+
+- **模式定义**（新文件 `src/game/mode.ts`）：`GameMode = 'speedrun' | 'practice'`
+  加 `GAME_MODES`，和 `modules.ts` 是同一套约定。放在独立文件而不是 `run.ts`，是
+  因为 `strings.ts` 需要 `Record<GameMode, string>`，而 `run.ts` 反过来引用了
+  i18n——放 `run.ts` 会绕成 `strings → run → strings`。
+- **停表机制**（`mapScene.ts`/`reward.ts`/`shop.ts`）：三个决策场景各加一个
+  `get timeScale() { return run.mode === 'practice' ? 0 : 1 }`。**没有动
+  `countsTime`，也没有动 `app.ts` 主循环**——复用的就是战斗清空过场那条现成的
+  停表通道（`CombatScene` 在 `clearTimer >= 0` 时返回 0），主循环里
+  `scale > 0` 的判断原样生效。`CombatScene` 一个字没改：战斗两种模式都计时。
+- **模式不进入 seed**：`Run.mode` 既不喂 `RngStream` 也不进 `computeStats`，
+  同一个 seed 在两种模式下是同一张图、同一批房间、同一个奖励顺序。练习哪一局，
+  竞速时就还是那一局。`tests/practiceMode.test.ts` 用地图指纹钉住了这条。
+- **只有走表变了，账本其余三项全不变**：受击惩罚、商店消费、修复站、捷径、击杀
+  返还在练习模式下照常记账。练习模式的总成绩 = 战斗时间 + 惩罚 + 消费 − 返还。
+- **`Run` 构造函数第三个参数带默认值** `mode: GameMode = 'speedrun'`，所以现有
+  ~20 处 `new Run(seed, module)` 调用点（各测试文件）一处都不用改。`SceneContext`
+  新增 `toModeSelect(seed)`，`toModuleSelect`/`startRun` 各多一个可选 `mode`。
+- **UI 跟着模式说实话**：奖励页/商店页的「时钟还在走」换成 `practiceNote`；地图
+  顶部提示换成 `map.practiceHint`（`drawMap` 多一个 `practice = false` 参数）；
+  HUD 的 `#moduleinfo` 行在练习模式加 `[练习]` 前缀（**竞速模式前缀是空串，这一行
+  的输出和加练习模式之前逐字节一致**，不破坏任何现有断言）；结算页加「模式」一行。
+- **结算页重跑必须带上 mode**：`startRun(run.seed, run.module, run.mode)`——漏了
+  第三个参数会让练习局的「同一 SEED 再跑」静默变成竞速局，没有任何报错。
+  `boot.test.ts` 专门有一条钉这个。
+- **已知文案瑕疵（刻意不做）**：地图上商店节点的 tooltip `rooms.shop.hint`
+  （「逛店期间时钟在走」）在练习模式下仍是假的。修它要给 `RoomText` 加可选字段、
+  动整个 `rooms` 字典结构，收益不值这个改动面；三处显眼的（地图顶部提示、奖励页、
+  商店页）已经全部按模式切换。
+- 新测试文件 `tests/practiceMode.test.ts`（6 项）：竞速/练习下三个决策场景的
+  `timeScale` 各是 1/0、`countsTime` 仍为 true（停表靠 timeScale 不是关掉整条
+  通道）、练习模式战斗仍计时且过场仍停表、同 seed 两模式地图指纹相同、两参数构造
+  缺省为竞速。`boot.test.ts` 的 `startRun` 辅助函数加了 `modeIndex` 参数（默认 0
+  = 竞速，现有用例全部照旧），另加 6 条端到端：模式选择页出两张卡、地图停表但战斗
+  计时、奖励页停表且拿卡回地图仍停表、商店停表但购买照常记消费（断言总分增量恰好
+  等于消费增量）、结算页写明模式且重跑仍是练习、竞速模式地图仍然计时。
+
 ## 已验证
 
-2026-08-04 已执行并通过：
+2026-08-06 已执行并通过：
 
 ```text
-npx vitest run    # 17 个测试文件，169 项测试全部通过
+npx vitest run    # 19 个测试文件，190 项测试全部通过
 npx tsc --noEmit  # 类型检查通过
 bash tests/run.sh  # 推送闸门（类型检查 + 测试 + 生产构建）全部通过
 ```
@@ -276,15 +318,17 @@ bash tests/run.sh  # 推送闸门（类型检查 + 测试 + 生产构建）全�
 （`tests/dashModule.test.ts`）、蓄势模组三专属强化的精准释放/震荡/余震全部机制
 （`tests/chargeModule.test.ts`）、战斗循环（三模组各跑一遍 fuzz，另加飞刃/掠影/
 蓄势满强化各一条在真实 Boss 房的报价一致性 fuzz，共覆盖 13 个专属强化中的绝大
-多数）、走表规则、i18n（含 HUD 模组行 + 结算页伤害占比新文案的键集合一致性）、
-启动冒烟测试（含模组选择页流程）。伤害标签统计（`Run.damageByTag`）和 HUD/结算页
+多数）、走表规则、**竞速/练习两种模式的走表差异**（`tests/practiceMode.test.ts`
++ `boot.test.ts` 的「练习模式」端到端）、i18n（含 HUD 模组行 + 结算页伤害占比
+新文案的键集合一致性）、启动冒烟测试（含模式选择页 + 模组选择页流程）。伤害标签统计（`Run.damageByTag`）和 HUD/结算页
 的新增显示目前只有编译期类型检查 + 现有冒烟测试覆盖，没有专项断言具体百分比数字——
 这是刻意的范围收窄：数字本身是纯衍生统计，真正的风险点（标签是否覆盖、tally 是否
 清零、merge 时机）已经被战斗循环 fuzz 间接验证过。
 
-手动验证：`bash tests/run.sh` 内建的 jsdom 冒烟测试已经把「标题页填 seed → 选模组
-→ 进地图 → 打战斗房 → 领奖励 → 逛商店 → 打 Boss → 结算页」整条链路走了一遍并断言
-DOM 状态，覆盖了比单纯类型检查更贴近真实交互的路径；没有额外用浏览器手动点过。
+手动验证：`bash tests/run.sh` 内建的 jsdom 冒烟测试已经把「标题页填 seed → 选模式
+→ 选模组 → 进地图 → 打战斗房 → 领奖励 → 逛商店 → 打 Boss → 结算页」整条链路走了
+一遍并断言 DOM 状态（练习模式那条支线另跑一遍），覆盖了比单纯类型检查更贴近真实
+交互的路径；没有额外用浏览器手动点过。
 
 ## 发布约定
 
@@ -303,7 +347,8 @@ DOM 状态，覆盖了比单纯类型检查更贴近真实交互的路径；没�
 | 模组基础能力 | `src/game/modules.ts` |
 | 强化/进化数据与 computeStats | `src/game/upgrades.ts` |
 | 奖励/商店生成规则 | `src/game/rewards.ts` |
-| 一局状态、seed 分流、进化归属 | `src/game/run.ts` |
+| 一局状态、seed 分流、进化归属、本局模式 | `src/game/run.ts` |
+| 竞速/练习模式定义 | `src/game/mode.ts` |
 | 时间账本与总成绩 | `src/game/ledger.ts` |
 | 地图生成和路线约束 | `src/game/map.ts` |
 | 房间敌人编排 | `src/game/room.ts` |

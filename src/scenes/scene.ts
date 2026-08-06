@@ -3,7 +3,9 @@ import type { Input } from '../core/input';
 import type { Overlay } from '../ui/overlay';
 import type { Run } from '../game/run';
 import type { Player } from '../game/player';
+import type { GameMode } from '../game/mode';
 import type { ModuleId } from '../game/modules';
+import type { TimedChestView } from '../game/timedChest';
 
 /**
  * 场景之间不互相 import —— 全部通过这几个跳转方法走 App，
@@ -16,9 +18,11 @@ export interface SceneContext {
   go(next: Scene): void;
   toMap(): void;
   toResult(): void;
-  /** seed 定；从标题页直接进模组选择页，模组选完才真正开局。 */
-  toModuleSelect(seed: number): void;
-  startRun(seed: number, module: ModuleId): void;
+  /** seed 定；从标题页先进模式选择页（竞速/练习）。 */
+  toModeSelect(seed: number): void;
+  /** 模式定；进模组选择页，模组选完才真正开局。 */
+  toModuleSelect(seed: number, mode?: GameMode): void;
+  startRun(seed: number, module: ModuleId, mode?: GameMode): void;
   toTitle(): void;
 }
 
@@ -41,6 +45,8 @@ export interface Scene {
   readonly pausable: boolean;
   /** HUD 要读的玩家（只有战斗场景有） */
   readonly player?: Player | null;
+  /** 只有原型宝箱战斗房提供；HUD 只读。 */
+  readonly timedChest?: TimedChestView | null;
 
   enter?(): void;
   exit?(): void;

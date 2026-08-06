@@ -1,4 +1,4 @@
-import { BOSS, BRUTE, CHARGER, FEEL, HIT, MEDIC, MODULES, PLAYER, SHOOTER } from './config';
+import { BOSS, BRUTE, CHARGER, FEEL, HIT, MEDIC, MODULES, PLAYER, SHOOTER, TIMED_CHEST } from './config';
 import { Arena } from './arena';
 import { Fx } from './fx';
 import { Timeline } from '../core/timeline';
@@ -15,6 +15,7 @@ import type { Ledger } from './ledger';
 import type { RngStream } from '../core/rng';
 import type { InputSource } from '../core/input';
 import type { Vec2 } from '../core/math';
+import type { TimedChest } from './timedChest';
 
 /**
  * 一个战斗房间的完整世界。
@@ -44,6 +45,7 @@ export class World {
     readonly rng: RngStream,
     readonly ledger: Ledger,
     public stats: Stats,
+    readonly timedChest: TimedChest | null = null,
   ) {
     this.arena = new Arena(layoutIndex);
     this.player = createPlayer();
@@ -73,6 +75,15 @@ export class World {
     const tax = comboTax(p.streak);
     const sec = penaltyFor(base, this.priceContext);
     this.ledger.addPenalty(sec);
+
+    // 宝箱直接消费唯一罚时入口算出的实扣秒数。这里不看 Ledger.total 的差值，
+    // 因而不会把已经计入总成绩的受击惩罚再算两遍。
+    if (this.timedChest?.applyPenalty(sec)) {
+      const { x, y } = TIMED_CHEST.position;
+      this.fx.float(x, y - 42, `−${formatSeconds(sec)}s`, '#ff6a6a', 25);
+      this.fx.ring(x, y, 12, 54, '#ff4444', 0.3);
+      if (this.timedChest.state === 'Expired') this.expireTimedChestFx();
+    }
 
     p.streak += 1;
     p.streakT = this.stats.taxWindow;
@@ -140,6 +151,10 @@ export class World {
         this.fx.float(e.x, e.y - 20, `-${formatSeconds(refund)}s`, '#8fe388', 20);
       }
     }
+
+    // 清空事件在实际击杀点锁定，早于本步后续的子弹/动画；一旦成功，
+    // 后来的事件不能把宝箱从终态翻回去。
+    if (this.enemies.every((other) => other.dead)) this.resolveTimedChestClear();
 
     // 追杀（破阵进化 B）：击杀一个还处于破阵状态的敌人，减冲刺冷却 + 短暂加速
     if (wasBroken && s.breakChaseEnabled) {
@@ -244,6 +259,29 @@ export class World {
 
   addShake(v: number): void { this.shake = Math.max(this.shake, v); }
   addHitstop(v: number): void { this.hitstop = Math.max(this.hitstop, v); }
+
+  /** CombatScene 用同一份有效战斗 dt 推进；终态下是幂等 no-op。 */
+  advanceTimedChest(dt: number): void {
+    const chest = this.timedChest;
+    if (!chest) return;
+    const before = chest.state;
+    chest.advance(dt);
+    if (before !== 'Expired' && chest.state === 'Expired') this.expireTimedChestFx();
+  }
+
+  /** 手动清空测试/非伤害清场的兜底；正常击杀会在 damageEnemy 中更早调用。 */
+  resolveTimedChestClear(): void {
+    if (!this.timedChest?.succeed()) return;
+    const { x, y } = TIMED_CHEST.position;
+    this.fx.ring(x, y, 18, 78, '#ffd166', 0.45);
+    this.fx.float(x, y - 44, '✓', '#ffd166', 30);
+  }
+
+  private expireTimedChestFx(): void {
+    const { x, y } = TIMED_CHEST.position;
+    this.fx.ring(x, y, 28, 74, '#ff4444', 0.42);
+    this.addShake(7);
+  }
 
   // ---------------------------------------------------------------- 主循环
 

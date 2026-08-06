@@ -53,13 +53,17 @@ function fillWithUniversal(rng: RngStream, offers: Offer[], state: RewardState, 
  * 战斗房：2 个模组专属 + 1 个通用（都是未获得的基础强化）。
  * 35% 概率把其中一张换成一条进化分支（前提：存在可进化的已拥有强化）。
  */
-export function drawCombatReward(rng: RngStream, state: RewardState): Offer[] {
+export function drawCombatReward(
+  rng: RngStream,
+  state: RewardState,
+  choiceCount: number = REWARDS.combatChoices,
+): Offer[] {
   const moduleOnly = drawUpgrades(rng, state.ownedIds, new Set([state.module]), 2);
   const excludedAfterModule = new Set<UpgradeId>([...state.ownedIds, ...moduleOnly.map((u) => u.id)]);
   const universalOnly = drawUpgrades(rng, excludedAfterModule, new Set(['universal']), 1);
 
   let offers = [...moduleOnly, ...universalOnly].map(upgradeOffer);
-  offers = fillWithUniversal(rng, offers, state, REWARDS.combatChoices);
+  offers = fillWithUniversal(rng, offers, state, choiceCount);
 
   if (offers.length > 0 && rng.bool(REWARDS.combatEvolutionChance)) {
     const evolvable = evolvableUpgrades(state);

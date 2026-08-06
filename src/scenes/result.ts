@@ -41,6 +41,7 @@ export class ResultScene implements Scene {
         <em>${s.spend}</em><span class="cSpend">+${formatSeconds(ledger.spend)}s</span><br>
         <em>${s.ref}</em><span class="cRef">−${formatSeconds(ledger.refund)}s</span><br>
         <em>${s.seed}</em><span id="seedout" style="cursor:pointer;text-decoration:underline dotted">${run.seed}</span><br>
+        <em>${s.mode}</em>${t().modes[run.mode]}<br>
         <em>${s.module}</em>${t().modules[run.module].name}<br>
         <em>${s.owned}</em>${run.owned.map((u) => run.upgradeLabel(u)).join(s.listSep) || s.none}<br>
         <em>${s.damage}</em>${damageBreakdownHtml(run)}
@@ -51,7 +52,8 @@ export class ResultScene implements Scene {
     `);
 
     // 同 seed 重跑是竞速的基本诉求：同一张图才能比出谁快
-    overlay.onClick('again', () => this.ctx.startRun(run.seed, run.module));
+    // 模式必须一起带上：练习重跑忘了带 mode 会静默变成竞速局
+    overlay.onClick('again', () => this.ctx.startRun(run.seed, run.module, run.mode));
     overlay.onClick('fresh', () => this.ctx.toTitle());
     overlay.onClick('seedout', () => {
       void navigator.clipboard?.writeText(String(run.seed));

@@ -1,5 +1,6 @@
-import { ELITE_HP_MULT, LAYOUT_WHITELIST, SPAWN } from './config';
+import { ELITE_HP_MULT, LAYOUT_WHITELIST, SPAWN, TIMED_CHEST } from './config';
 import { World } from './world';
+import { TimedChest } from './timedChest';
 import { spawnEnemy } from './enemies';
 import type { EnemyKind } from './entities';
 import type { MapNode } from './map';
@@ -14,14 +15,18 @@ import type { RngStream } from '../core/rng';
  */
 export function buildRoom(run: Run, node: MapNode): World {
   const rng = run.rngFor(node.id);
-  const world = new World(pickLayout(rng, node), rng, run.ledger, run.stats);
+  const hasTimedChest = run.isTimedChestRoom(node);
+  const layout = hasTimedChest ? TIMED_CHEST.layoutIndex : pickLayout(rng, node);
+  const world = new World(layout, rng, run.ledger, run.stats, hasTimedChest ? new TimedChest() : null);
 
   if (node.kind === 'boss') {
     world.enemies = [spawnEnemy('boss', rng, world.arena.w / 2, 150)];
     return world;
   }
 
-  const plan = node.kind === 'elite' ? elitePlan(rng, node.floor) : combatPlan(rng, node.floor);
+  const plan: readonly EnemyKind[] = hasTimedChest
+    ? TIMED_CHEST.enemyPlan
+    : node.kind === 'elite' ? elitePlan(rng, node.floor) : combatPlan(rng, node.floor);
   const hpMult = node.kind === 'elite' ? ELITE_HP_MULT : 1;
 
   for (const kind of plan) {

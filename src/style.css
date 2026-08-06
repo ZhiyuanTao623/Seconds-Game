@@ -25,6 +25,20 @@ canvas { display: block; background: #0d0d10; image-rendering: auto; }
 #clock.jolt { color: #ff4444; }
 #breakdown { margin-top: 6px; opacity: .75; font-size: 11px; line-height: 1.6; }
 #breakdown b { font-weight: 700; }
+#chesthud {
+  display: none; margin-top: 10px; width: 370px; padding: 8px 10px;
+  border-left: 3px solid #ffd166; background: rgba(13,13,16,.78);
+  color: #ffd166; line-height: 1.35;
+}
+#chesthud.on { display: block; }
+#chesthud strong { letter-spacing: 1px; }
+#chesttime { font-size: 20px; font-weight: 700; font-family: monospace; }
+#chesthud small { display: block; margin-top: 2px; color: #e8e8ec; opacity: .72; font-size: 10px; }
+#chesthud.critical { border-color: #ff4444; color: #ff6a6a; animation: chest-pulse .32s steps(2,end) infinite; }
+#chesthud.hit { background: rgba(110,18,18,.82); transform: translateX(3px); }
+#chesthud.succeeded { border-color: #8fe388; color: #8fe388; }
+#chesthud.expired { border-color: #777; color: #aaa; }
+@keyframes chest-pulse { 50% { opacity: .62; } }
 .cPlay { color: #9fe3ff; }
 .cPen  { color: #ff6a6a; }
 .cSpend{ color: #ffd166; }

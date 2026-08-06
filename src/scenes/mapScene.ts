@@ -11,7 +11,7 @@ import type { MapNode } from '../game/map';
 /**
  * 分支地图。整张图开局就摊开给你看，路线是规划出来的而不是抽出来的。
  *
- * ⚠️ 这个界面计时。看得越久，成绩越差。
+ * ⚠️ 竞速模式下这个界面计时，看得越久成绩越差；练习模式停表，可以慢慢规划。
  */
 export class MapScene implements Scene {
   readonly countsTime = true;
@@ -20,6 +20,9 @@ export class MapScene implements Scene {
   private hovered: MapNode | null = null;
 
   constructor(private ctx: SceneContext) {}
+
+  /** 练习模式：选路不计时。走的是和战斗过场同一条停表通道。 */
+  get timeScale(): number { return this.ctx.run.mode === 'practice' ? 0 : 1; }
 
   enter(): void { this.ctx.overlay.hide(); }
 
@@ -31,7 +34,7 @@ export class MapScene implements Scene {
 
   render(r: Renderer): void {
     const { run } = this.ctx;
-    drawMap(r, run.map, run.available, run.current?.id ?? null, this.hovered);
+    drawMap(r, run.map, run.available, run.current?.id ?? null, this.hovered, run.mode === 'practice');
   }
 
   private select(node: MapNode): void {

@@ -8,6 +8,7 @@ import type { Renderer } from '../render/renderer';
 import type { Player } from '../game/player';
 import type { World } from '../game/world';
 import type { MapNode } from '../game/map';
+import type { TimedChestView } from '../game/timedChest';
 
 export class CombatScene implements Scene {
   readonly countsTime = true;
@@ -27,6 +28,7 @@ export class CombatScene implements Scene {
   }
 
   get player(): Player { return this.world.player; }
+  get timedChest(): TimedChestView | null { return this.world.timedChest; }
 
   /**
    * 过场（纯动画，玩家已无事可做）停表；
@@ -37,18 +39,26 @@ export class CombatScene implements Scene {
   }
 
   // enter 会在暂停恢复时被再调用一次，所以这里只能放幂等的操作
-  enter(): void { this.ctx.overlay.hide(); }
+  enter(): void {
+    this.ctx.overlay.hide();
+    this.world.timedChest?.activate();
+  }
 
   update(dt: number): void {
     this.world.step(dt, this.ctx.input);
 
     if (this.clearTimer < 0) {
       if (this.world.cleared) {
+        this.world.resolveTimedChestClear();
         this.clearTimer = FEEL.roomClearDelay;
         // 高额结算（精算 B 分支）：精英房清空时一次性额外返还，只在这一刻结算一次
         if (this.node.kind === 'elite' && this.world.stats.refundEliteClear > 0) {
           this.ctx.run.ledger.addRefund(this.world.stats.refundEliteClear);
         }
+      } else {
+        // 和本步最终记入 Ledger.play 的口径一致：只有仍在战斗中的步骤才走表，
+        // 顿帧期间按 World.timeScale 同比例放慢。
+        this.world.advanceTimedChest(dt * this.world.timeScale);
       }
       return;
     }
@@ -79,6 +89,6 @@ export class CombatScene implements Scene {
       return;
     }
 
-    this.ctx.go(new RewardScene(this.ctx, this.node));
+    this.ctx.go(new RewardScene(this.ctx, this.node, this.world.timedChest?.state === 'Succeeded'));
   }
 }

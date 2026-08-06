@@ -6,9 +6,11 @@ import { Hud } from './ui/hud';
 import { Overlay } from './ui/overlay';
 import { getLocale, onLocaleChange, t, toggleLocale } from './i18n/i18n';
 import { MapScene } from './scenes/mapScene';
+import { ModeSelectScene } from './scenes/modeSelect';
 import { ModuleSelectScene } from './scenes/moduleSelect';
 import { ResultScene } from './scenes/result';
 import { TitleScene } from './scenes/title';
+import type { GameMode } from './game/mode';
 import type { ModuleId } from './game/modules';
 import type { Scene, SceneContext } from './scenes/scene';
 
@@ -56,10 +58,14 @@ export class App implements SceneContext {
 
   toMap(): void { this.go(new MapScene(this)); }
   toResult(): void { this.go(new ResultScene(this)); }
-  toModuleSelect(seed: number): void { this.go(new ModuleSelectScene(this, seed)); }
+  toModeSelect(seed: number): void { this.go(new ModeSelectScene(this, seed)); }
 
-  startRun(seed: number, module: ModuleId): void {
-    this.currentRun = new Run(seed, module);
+  toModuleSelect(seed: number, mode: GameMode = 'speedrun'): void {
+    this.go(new ModuleSelectScene(this, seed, mode));
+  }
+
+  startRun(seed: number, module: ModuleId, mode: GameMode = 'speedrun'): void {
+    this.currentRun = new Run(seed, module, mode);
     this.hud.reset();
     this.setPaused(false);
     this.toMap();
@@ -182,7 +188,7 @@ export class App implements SceneContext {
     // 暂停时一帧世界都不画 —— 遮罩之外也不给任何可读信息
     if (!this.paused) this.activeScene.render(this.renderer);
     this.renderer.resetTransform();
-    this.hud.update(this.currentRun, this.activeScene.player ?? null, frameDt);
+    this.hud.update(this.currentRun, this.activeScene.player ?? null, this.activeScene.timedChest ?? null, frameDt);
 
     requestAnimationFrame(this.frame);
   };

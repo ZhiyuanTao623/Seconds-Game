@@ -1,4 +1,4 @@
-import { ARENA, BOSS, BRUTE, CHARGER, MEDIC, SHOOTER } from '../game/config';
+import { ARENA, BOSS, BRUTE, CHARGER, MEDIC, SHOOTER, TIMED_CHEST } from '../game/config';
 import { TAU, clamp, dist } from '../core/math';
 import { labelFor } from '../game/pricing';
 import { threatOf } from '../game/enemies';
@@ -14,12 +14,75 @@ import type { PriceContext } from '../game/pricing';
 export function drawWorld(r: Renderer, world: World): void {
   drawGrid(r);
   drawWalls(r, world);
+  drawTimedChest(r, world);
   const ctx = world.priceContext;
   for (const e of world.enemies) drawEnemy(r, world, e, ctx);
   drawBullets(r, world, ctx);
   drawPlayer(r, world);
   drawFx(r, world);
   drawScreenFlash(r, world);
+}
+
+// ---------------------------------------------------------------- 限时宝箱
+
+function drawTimedChest(r: Renderer, world: World): void {
+  const chest = world.timedChest;
+  if (!chest) return;
+
+  const { ctx } = r;
+  const { x, y } = TIMED_CHEST.position;
+  const critical = chest.state === 'Critical';
+  const expired = chest.state === 'Expired';
+  const succeeded = chest.state === 'Succeeded';
+  const pulse = 1 + Math.sin(chest.animationTime * (critical ? 12 : 5)) * (critical ? 0.08 : 0.035);
+  const hitScale = chest.hitFlash > 0 ? 1 + chest.hitFlash * 0.35 : 1;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(pulse * hitScale, pulse * hitScale);
+
+  if (!expired) {
+    const glow = critical ? '#ff4444' : '#ffd166';
+    ctx.globalAlpha = critical ? 0.22 + Math.abs(Math.sin(chest.animationTime * 12)) * 0.28 : 0.2;
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, succeeded ? 48 : 38, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  if (expired) {
+    ctx.strokeStyle = '#6b5555';
+    ctx.fillStyle = '#21191b';
+    ctx.lineWidth = 3;
+    ctx.fillRect(-28, -3, 24, 16);
+    ctx.fillRect(5, 2, 23, 11);
+    ctx.strokeRect(-28, -3, 24, 16);
+    ctx.strokeRect(5, 2, 23, 11);
+    ctx.beginPath();
+    ctx.moveTo(-8, -17); ctx.lineTo(1, -5); ctx.lineTo(-3, 8); ctx.lineTo(8, 20);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  const edge = critical ? '#ff6a6a' : '#ffd166';
+  ctx.fillStyle = succeeded ? '#4a3b18' : '#2a2415';
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = 3;
+  ctx.fillRect(-30, -9, 60, 34);
+  ctx.strokeRect(-30, -9, 60, 34);
+
+  ctx.save();
+  if (succeeded) ctx.rotate(-0.42);
+  ctx.fillStyle = '#332a16';
+  ctx.fillRect(-32, -22, 64, 15);
+  ctx.strokeRect(-32, -22, 64, 15);
+  ctx.restore();
+
+  ctx.fillStyle = edge;
+  ctx.fillRect(-5, -4, 10, 15);
+  ctx.restore();
 }
 
 function drawGrid(r: Renderer): void {

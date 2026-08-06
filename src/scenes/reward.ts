@@ -7,10 +7,11 @@ import type { Scene, SceneContext } from './scene';
 import type { Renderer } from '../render/renderer';
 import type { Offer } from '../game/rewards';
 import type { MapNode } from '../game/map';
+import { TIMED_CHEST } from '../game/config';
 
 /**
  * 战斗/精英奖励：不花秒，因为你已经用「游戏时间」买过单了。
- * ⚠️ 挑卡期间时钟照走。
+ * ⚠️ 竞速模式下挑卡期间时钟照走；练习模式停表。
  */
 export class RewardScene implements Scene {
   readonly countsTime = true;
@@ -19,12 +20,19 @@ export class RewardScene implements Scene {
   private options: Offer[];
   private readonly elite: boolean;
 
-  constructor(private ctx: SceneContext, private node: MapNode) {
+  /** 练习模式：挑卡不计时。 */
+  get timeScale(): number { return this.ctx.run.mode === 'practice' ? 0 : 1; }
+
+  constructor(private ctx: SceneContext, private node: MapNode, private timedChestSucceeded = false) {
     this.elite = node.kind === 'elite';
     const rng = ctx.run.rngFor(node.id, 'reward');
     this.options = this.elite
       ? drawEliteReward(rng, ctx.run.rewardState)
-      : drawCombatReward(rng, ctx.run.rewardState);
+      : drawCombatReward(
+          rng,
+          ctx.run.rewardState,
+          timedChestSucceeded ? TIMED_CHEST.rewardChoices : undefined,
+        );
   }
 
   enter(): void {
@@ -40,10 +48,10 @@ export class RewardScene implements Scene {
 
     this.ctx.overlay.show(`
       <div class="ov-title">${this.elite ? s.eliteCleared : s.cleared}</div>
-      <div class="ov-sub">${this.elite ? s.eliteBody : s.body}</div>
+      <div class="ov-sub">${this.elite ? s.eliteBody : this.timedChestSucceeded ? t().timedChest.rewardBonus : s.body}</div>
       <div class="reward-total">
         <span>${s.total}</span><strong id="rewardTotal">${formatSeconds(this.ctx.run.ledger.total)}s</strong>
-        <small>${s.clockNote}</small>
+        <small>${this.ctx.run.mode === 'practice' ? s.practiceNote : s.clockNote}</small>
       </div>
       ${cardsHtml(cards)}
     `);

@@ -46,6 +46,7 @@ export function drawMap(
   available: readonly string[],
   currentId: string | null,
   hovered: MapNode | null,
+  practice = false,
 ): void {
   const { ctx } = r;
   const availableSet = new Set(available);
@@ -60,7 +61,7 @@ export function drawMap(
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(232,232,236,.55)';
   ctx.font = '13px monospace';
-  ctx.fillText(t().map.hint, ARENA.w / 2, 38);
+  ctx.fillText(practice ? t().map.practiceHint : t().map.hint, ARENA.w / 2, 38);
 
   if (hovered) drawTooltip(r, hovered);
 }

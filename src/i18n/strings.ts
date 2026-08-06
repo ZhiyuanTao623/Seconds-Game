@@ -1,4 +1,5 @@
 import type { RoomKind } from '../game/map';
+import type { GameMode } from '../game/mode';
 import type { ModuleId } from '../game/modules';
 import type { DamageTag } from '../game/entities';
 
@@ -8,6 +9,7 @@ export interface RoomText { label: string; hint: string }
 export interface UpgradeText { name: string; desc: string }
 export interface EvolutionText { name: string; desc: string }
 export interface ModuleText { name: string; desc: string }
+export interface ModeText { name: string; desc: string }
 
 /**
  * 强化 id 联合类型。这里是唯一真相源 —— upgrades.ts 里每个
@@ -55,6 +57,18 @@ export interface Strings {
     start: string;
   };
 
+  modeSelect: {
+    title: string;
+    body: string;
+    kind: string;
+    pick: string;
+    speedrun: ModeText;
+    practice: ModeText;
+  };
+
+  /** 模式短名。HUD 徽标和结算页那一行用。 */
+  modes: Record<GameMode, string>;
+
   moduleSelect: {
     title: string;
     body: string;
@@ -66,6 +80,8 @@ export interface Strings {
 
   map: {
     hint: string;
+    /** 练习模式下的顶部提示 —— 竞速那句「时钟正在走」在这里是假的。 */
+    practiceHint: string;
     mendToast: (cost: number, cut: string) => string;
     /** `skippedLabel` 是被跳过那一层的房型名字；为空串表示这一层没有内容（极端情况）。 */
     shortcutToast: (cost: number, skippedLabel: string, elite: boolean) => string;
@@ -74,6 +90,15 @@ export interface Strings {
   rooms: Record<RoomKind, RoomText>;
 
   combat: { finalFloor: string };
+
+  timedChest: {
+    title: string;
+    objective: string;
+    succeeded: string;
+    rewardBonus: string;
+    expired: string;
+    expiredDetail: string;
+  };
 
   reward: {
     kind: string;
@@ -84,6 +109,8 @@ export interface Strings {
     eliteBody: string;
     total: string;
     clockNote: string;
+    /** 练习模式下替换 clockNote —— 停表时不能还写着「时钟还在走」。 */
+    practiceNote: string;
     free: string;
     got: (name: string) => string;
     evolved: (name: string) => string;
@@ -98,6 +125,8 @@ export interface Strings {
     /** `total` 参数已经带好单位（比如 `8.4s`），只管往句子里嵌 */
     total: (total: string) => string;
     clockNote: string;
+    /** 练习模式下替换 clockNote。 */
+    practiceNote: string;
     leave: string;
     /** 第 4 槽「随机折扣强化」价签前缀 */
     discount: string;
@@ -112,6 +141,7 @@ export interface Strings {
     spend: string;
     ref: string;
     seed: string;
+    mode: string;
     module: string;
     owned: string;
     none: string;
@@ -162,6 +192,23 @@ const zh: Strings = {
     start: '开 始',
   },
 
+  modeSelect: {
+    title: '选 择 模 式',
+    body: '模式不进入 seed —— 同一个 seed 在两种模式下是同一张图、同一批房间。',
+    kind: '模式',
+    pick: '选择',
+    speedrun: {
+      name: '竞速模式',
+      desc: '一切照旧：地图、奖励、商店全程计时，犹豫也要付钱。成绩用于比较。',
+    },
+    practice: {
+      name: '练习模式',
+      desc: '决策界面停表：地图选路、挑卡、逛商店都可以慢慢想。战斗照常计时，受击惩罚、购买消费、击杀返还也照常记账。',
+    },
+  },
+
+  modes: { speedrun: '竞速', practice: '练习' },
+
   moduleSelect: {
     title: '选 择 模 组',
     body: '本局不可更改。三个模组各自动了一条不同的操作前提。',
@@ -186,6 +233,7 @@ const zh: Strings = {
 
   map: {
     hint: '选 择 路 线 —— 时 钟 正 在 走',
+    practiceHint: '选 择 路 线 —— 练 习 模 式 · 时 钟 已 停',
     mendToast: (cost, cut) => `花费 ${cost}s，消除了 ${cut}s 惩罚`,
     shortcutToast: (cost, skippedLabel, elite) =>
       elite
@@ -206,11 +254,21 @@ const zh: Strings = {
 
   combat: { finalFloor: '最终节点' },
 
+  timedChest: {
+    title: '限时宝箱：',
+    objective: '倒计时结束前清空房间，本房奖励升级为 4 选 1',
+    succeeded: '已解锁',
+    rewardBonus: '本房奖励已升级为 4 选 1',
+    expired: '已失效',
+    expiredDetail: '继续战斗；本房仍可获得正常的 3 选 1 奖励',
+  },
+
   reward: {
     kind: '强化',
     cleared: '房 间 已 清 空',
     body: '你用游戏时间换来了它 —— 免费拿走一个。',
     clockNote: '时钟还在走。',
+    practiceNote: '练习模式：时钟已停。',
     free: '免费 · 已用战斗时间支付',
     got: (name) => `获得 ${name}`,
     eliteKind: '进化',
@@ -281,6 +339,7 @@ const zh: Strings = {
     body: '你永远买得起 —— 因为代价直接记在你的计时器上。',
     total: (total) => `当前总计 ${total} ·`,
     clockNote: '逛店也在计时',
+    practiceNote: '练习模式：逛店不计时',
     leave: '离 开 商 店',
     discount: '折扣',
     bought: (price, name) => `花费 ${price}s 购入 ${name}`,
@@ -294,6 +353,7 @@ const zh: Strings = {
     spend: '秒数消费',
     ref: '击杀返还',
     seed: 'SEED',
+    mode: '模式',
     module: '模组',
     owned: '持有强化',
     none: '无',
@@ -364,6 +424,23 @@ const en: Strings = {
     start: 'S T A R T',
   },
 
+  modeSelect: {
+    title: 'Choose a Mode',
+    body: 'The mode is not part of the seed — the same seed gives you the same map and the same rooms either way.',
+    kind: 'Mode',
+    pick: 'Pick',
+    speedrun: {
+      name: 'Speedrun',
+      desc: 'Everything as usual: the map, rewards, and shop all keep the clock running. Hesitation costs you. Your time is your score.',
+    },
+    practice: {
+      name: 'Practice',
+      desc: 'Decision screens are frozen: take your time routing the map, picking cards, and browsing the shop. Combat still counts, and hit penalties, purchases, and kill refunds are all still charged.',
+    },
+  },
+
+  modes: { speedrun: 'Speedrun', practice: 'Practice' },
+
   moduleSelect: {
     title: 'Choose a Module',
     body: 'This choice is locked in for the run. Each module rewrites a different core action.',
@@ -388,6 +465,7 @@ const en: Strings = {
 
   map: {
     hint: 'Choose a route — the clock is running',
+    practiceHint: 'Choose a route — practice mode · the clock is stopped',
     mendToast: (cost, cut) => `Spent ${cost}s, cleared ${cut}s of penalty`,
     shortcutToast: (cost, skippedLabel, elite) =>
       elite
@@ -408,11 +486,21 @@ const en: Strings = {
 
   combat: { finalFloor: 'Final Floor' },
 
+  timedChest: {
+    title: 'Timed Chest:',
+    objective: 'Clear the room before time runs out to upgrade this reward to a pick from 4',
+    succeeded: 'Unlocked',
+    rewardBonus: 'This room reward is now a pick from 4',
+    expired: 'Expired',
+    expiredDetail: 'Keep fighting; this room still grants the normal pick from 3',
+  },
+
   reward: {
     kind: 'Upgrade',
     cleared: 'Room Cleared',
     body: 'You paid for it with game time — take one for free.',
     clockNote: 'The clock is still running.',
+    practiceNote: 'Practice mode: the clock is stopped.',
     free: 'Free · paid with combat time',
     got: (name) => `Got ${name}`,
     eliteKind: 'Evolution',
@@ -483,6 +571,7 @@ const en: Strings = {
     body: 'You can always afford it — the cost is charged straight to your clock.',
     total: (total) => `Current total ${total} ·`,
     clockNote: 'the clock runs while you browse',
+    practiceNote: "practice mode: browsing doesn't tick the clock",
     leave: 'Leave Shop',
     discount: 'Discount',
     bought: (price, name) => `Spent ${price}s on ${name}`,
@@ -496,6 +585,7 @@ const en: Strings = {
     spend: 'Spent',
     ref: 'Kill Refund',
     seed: 'SEED',
+    mode: 'Mode',
     module: 'Module',
     owned: 'Upgrades',
     none: 'None',

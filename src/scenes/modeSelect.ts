@@ -1,28 +1,27 @@
 import { cardsHtml } from '../ui/overlay';
-import { MODULE_IDS } from '../game/modules';
+import { GAME_MODES } from '../game/mode';
 import { t } from '../i18n/i18n';
 import type { CardSpec } from '../ui/overlay';
 import type { GameMode } from '../game/mode';
-import type { ModuleId } from '../game/modules';
 import type { Scene, SceneContext } from './scene';
 import type { Renderer } from '../render/renderer';
 
 /**
- * 开局三选一：飞刃 / 掠影 / 蓄势。选完不可更改。
- * 不计时 —— 这是准备阶段，真正的竞速从进第一层才开始。
+ * 开局二选一：竞速 / 练习。模式是每局的选择，不进入 seed。
+ * 不计时 —— 和模组选择页一样，这里还没开局。
  */
-export class ModuleSelectScene implements Scene {
+export class ModeSelectScene implements Scene {
   readonly countsTime = false;
   readonly pausable = false;
 
-  constructor(private ctx: SceneContext, private seed: number, private mode: GameMode = 'speedrun') {}
+  constructor(private ctx: SceneContext, private seed: number) {}
 
   enter(): void {
-    const s = t().moduleSelect;
-    const cards: CardSpec[] = MODULE_IDS.map((id) => ({
+    const s = t().modeSelect;
+    const cards: CardSpec[] = GAME_MODES.map((id) => ({
       kind: s.kind,
-      name: t().modules[id].name,
-      desc: t().modules[id].desc,
+      name: s[id].name,
+      desc: s[id].desc,
       price: { cls: 'free', text: s.pick },
     }));
 
@@ -31,7 +30,7 @@ export class ModuleSelectScene implements Scene {
       <div class="ov-sub">${s.body}</div>
       ${cardsHtml(cards)}
     `);
-    this.ctx.overlay.onCards((i) => this.pick(MODULE_IDS[i]));
+    this.ctx.overlay.onCards((i) => this.pick(GAME_MODES[i]));
   }
 
   update(_dt: number): void {
@@ -42,8 +41,8 @@ export class ModuleSelectScene implements Scene {
   render(_r: Renderer): void {}
   exit(): void { this.ctx.overlay.hide(); }
 
-  private pick(module: ModuleId | undefined): void {
-    if (!module) return;
-    this.ctx.startRun(this.seed, module, this.mode);
+  private pick(mode: GameMode | undefined): void {
+    if (!mode) return;
+    this.ctx.toModuleSelect(this.seed, mode);
   }
 }
